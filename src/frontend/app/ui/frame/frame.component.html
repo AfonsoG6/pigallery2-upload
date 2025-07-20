@@ -40,10 +40,16 @@
             <li class="nav-item w-100" *ngIf="showSearch">
               <app-gallery-search></app-gallery-search>
             </li>
+            <li class="nav-item d-xl-block d-none" *ngIf="showUpload">
+              <app-gallery-upload></app-gallery-upload>
+            </li>
+            <li class="nav-item divider-vertical d-xl-block d-none"
+                *ngIf="authenticationRequired && user.value && showUpload">
+            </li>
             <li class="nav-item d-xl-block d-none" *ngIf="showShare">
               <app-gallery-share></app-gallery-share>
             </li>
-            <li class="nav-item divider-vertical  d-xl-block d-none"
+            <li class="nav-item divider-vertical d-xl-block d-none"
                 *ngIf="authenticationRequired && user.value && showShare">
             </li>
             <ng-container *ngIf="authenticationRequired && user.value">
@@ -84,6 +90,9 @@
                       </ng-container>
                       <app-language class="navbar-btn d-inline-block float-end"></app-language>
                     </div>
+                  </li>
+                  <li class="nav-item d-xl-none" *ngIf="showUpload">
+                    <app-gallery-upload [dropDownItem]="true"></app-gallery-upload>
                   </li>
                   <li class="nav-item d-xl-none" *ngIf="showShare">
                     <app-gallery-share [dropDownItem]="true"></app-gallery-share>

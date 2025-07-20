@@ -1,0 +1,64 @@
+.modal {
+  z-index: 9999;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.row {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
+ng-icon{
+  vertical-align: text-top;
+}
+
+.drop-zone {
+  border: 2px dashed #ccc;
+  border-radius: 5px;
+  padding: 1rem;
+  text-align: center;
+  cursor: pointer;
+  margin-bottom: 1rem;
+}
+
+.drop-zone:hover {
+  background-color: var(--bs-secondary-bg);
+}
+
+.drop-zone.dragover {
+  border-color: yellow;
+  background-color: var(--bs-secondary-bg);
+}
+
+.file-input {
+  display: none;
+}
+
+.list-group {
+  margin-top: 1rem;
+  max-height: 50vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.list-group-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  overflow: hidden;
+}
+
+.list-group-item span {
+  flex-grow: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.list-group-item .btn {
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}

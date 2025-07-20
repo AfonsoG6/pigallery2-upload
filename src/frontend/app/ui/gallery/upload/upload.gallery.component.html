@@ -1,0 +1,48 @@
+<button id="uploadButton" class="nav-link btn  btn-link"
+        style="white-space:nowrap"
+        *ngIf="!dropDownItem"
+        type="button" [disabled]="!enabled" (click)="openModal(uploadModal)">
+  <ng-icon name="ionCloudUploadOutline" class="me-1"></ng-icon>
+  <ng-container i18n>Upload</ng-container>
+</button>
+
+<a class="dropdown-item" (click)="openModal(uploadModal)" *ngIf="dropDownItem">
+  <ng-icon name="ionCloudUploadOutline"></ng-icon>
+  <ng-container i18n>Upload</ng-container>
+</a>
+
+<ng-template #uploadModal>
+  <!-- upload Modal-->
+  <div class="modal-header">
+    <h5 class="modal-title" i18n>Upload</h5>
+    <button type="button" class="btn-close" (click)="hideModal()" data-dismiss="modal" aria-label="Close">
+    </button>
+  </div>
+  <div class="modal-body">
+    <form #uploadForm="ngForm" class="form-horizontal">
+      <div class="row mb-3">
+        <div class="col-12">
+          <div class="drop-zone" 
+                [class.dragover]="isDragOver" 
+                (drop)="onFileDropped($event)" 
+                (dragover)="onDragOver($event)" 
+                (dragleave)="onDragLeave()" 
+                (click)="triggerFileInput()">
+            <ng-icon name="ionCloudUploadOutline" class="me-1"></ng-icon>
+            <p i18n>Drag and drop files here, or click to select files</p>
+            <input id="fileInput" type="file" class="file-input" (change)="onFileSelected($event)" multiple>
+          </div>
+          <ul class="list-group">
+            <li class="list-group-item" *ngFor="let file of files | keyvalue">
+              <span>{{ file.key }}</span>
+              <button type="button" class="btn btn-danger btn-sm float-end" (click)="removeFile(file.key)" i18n>Remove</button>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </form>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-primary" (click)="uploadFiles()" [disabled]="uploading" i18n>Upload</button>
+  </div>
+</ng-template>

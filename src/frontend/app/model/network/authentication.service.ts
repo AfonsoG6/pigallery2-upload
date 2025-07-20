@@ -96,6 +96,10 @@ export class AuthenticationService {
     return Config.Search.enabled && this.isAuthorized(UserRoles.Guest);
   }
 
+  public canUpload(): boolean {
+    return Config.Upload.enabled && this.isAuthorized(UserRoles.User);
+  }
+
   public async logout(): Promise<void> {
     await this.userService.logout();
     this.user.next(null);

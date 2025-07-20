@@ -272,6 +272,20 @@ export class ClientSearchConfig {
   listMetafiles: boolean = true;
 }
 
+
+@SubConfigClass({tags: {client: true}, softReadonly: true})
+export class ClientUploadConfig {
+  @ConfigProperty({
+    tags:
+      {
+        name: $localize`Enable`,
+        priority: ConfigPriority.advanced
+      },
+    description: $localize`Enables uploading.`
+  })
+  enabled: boolean = true;
+}
+
 @SubConfigClass({tags: {client: true}, softReadonly: true})
 export class ClientAlbumConfig {
   @ConfigProperty({
@@ -1548,6 +1562,14 @@ export class ClientConfig {
 
   @ConfigProperty()
   Sharing: ClientSharingConfig = new ClientSharingConfig();
+
+  @ConfigProperty({
+    tags: {
+      name: $localize`Upload`,
+      uiIcon: 'ionCloudUploadOutline'
+    } as TAGS,
+  })
+  Upload: ClientUploadConfig = new ClientUploadConfig();
 
   @ConfigProperty({
     tags: {

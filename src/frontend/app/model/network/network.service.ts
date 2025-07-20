@@ -155,6 +155,65 @@ export class NetworkService {
     }
   }
 
+  public postMultipartFormData<T>(
+    url: string,
+    formData: FormData
+  ): Promise<T> {
+    return this.callMultipartFormData('post', url, formData);
+  }
+
+  public putMultipartFormData<T>(
+    url: string,
+    formData: FormData
+  ): Promise<T> {
+    return this.callMultipartFormData('put', url, formData);
+  }
+
+  private callMultipartFormData<T>(
+    method: 'post' | 'put',
+    url: string,
+    formData: FormData
+  ): Promise<T> {
+    this.loadingBarService.useRef().start();
+
+    const process = (res: HttpResponse<Message<T>>): T => {
+      this.loadingBarService.useRef().complete();
+      const msg = res.body;
+      if (res.headers.has(CustomHeaders.dataVersion)) {
+        this.versionService.onNewVersion(
+          res.headers.get(CustomHeaders.dataVersion)
+        );
+      }
+      if (msg.error) {
+        if (msg.error.code) {
+          (msg.error as any).title = ErrorCodes[msg.error.code];
+        }
+        throw msg.error;
+      }
+      return msg.result;
+    };
+
+    const err = <T>(error: T) => {
+      this.loadingBarService.useRef().complete();
+      return this.handleError(error);
+    };
+
+    switch (method) {
+      case 'post':
+        return lastValueFrom(this.http
+          .post<Message<T>>(this.apiBaseUrl + url, formData, {observe: 'response'}))
+          .then(process)
+          .catch(err);
+      case 'put':
+        return lastValueFrom(this.http
+          .put<Message<T>>(this.apiBaseUrl + url, formData, {observe: 'response'}))
+          .then(process)
+          .catch(err);
+      default:
+        throw new Error('Unknown method');
+    }
+  }
+
   private handleError<T>(error: T): Promise<T> {
     if (typeof (error as ErrorDTO).code !== 'undefined') {
       for (const item of this.globalErrorHandlers) {

@@ -29,8 +29,10 @@ import {GalleryMapLightboxComponent} from './ui/gallery/map/lightbox/lightbox.ma
 import {ThumbnailManagerService} from './ui/gallery/thumbnailManager.service';
 import {OverlayService} from './ui/gallery/overlay.service';
 import {GalleryShareComponent} from './ui/gallery/share/share.gallery.component';
+import {GalleryUploadComponent} from './ui/gallery/upload/upload.gallery.component';
 import {ShareLoginComponent} from './ui/sharelogin/share-login.component';
 import {ShareService} from './ui/gallery/share.service';
+import {UploadService} from './ui/gallery/upload.service';
 import {ModalModule} from 'ngx-bootstrap/modal';
 import {BsDatepickerModule} from 'ngx-bootstrap/datepicker';
 import {ToastrModule} from 'ngx-toastr';
@@ -132,6 +134,7 @@ import {
   ionDocumentOutline,
   ionDocumentTextOutline,
   ionDownloadOutline,
+  ionCloudUploadOutline,
   ionExpandOutline,
   ionFileTrayFullOutline,
   ionFlagOutline,
@@ -235,7 +238,7 @@ Marker.prototype.options.icon = MarkerFactory.defIcon;
     BrowserAnimationsModule,
     AppRoutingModule,
     NgIconsModule.withIcons({
-      ionDownloadOutline, ionFunnelOutline,
+      ionDownloadOutline, ionCloudUploadOutline, ionFunnelOutline,
       ionGitBranchOutline, ionArrowDownOutline, ionArrowUpOutline,
       ionStarOutline, ionStar, ionCalendarOutline, ionPersonOutline, ionShuffleOutline,
       ionPeopleOutline,
@@ -304,6 +307,7 @@ Marker.prototype.options.icon = MarkerFactory.defIcon;
     GallerySearchFieldComponent,
     GallerySearchQueryBuilderComponent,
     GalleryShareComponent,
+    GalleryUploadComponent,
     GalleryNavigatorComponent,
     GalleryFilterComponent,
     GalleryPhotoComponent,
@@ -355,6 +359,7 @@ Marker.prototype.options.icon = MarkerFactory.defIcon;
     StringifySortingMethod,
     NetworkService,
     ShareService,
+    UploadService,
     UserService,
     AlbumsService,
     GalleryCacheService,

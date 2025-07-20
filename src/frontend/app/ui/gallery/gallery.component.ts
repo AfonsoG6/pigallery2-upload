@@ -18,6 +18,7 @@ import {PiTitleService} from '../../model/pi-title.service';
 import {GPXFilesFilterPipe} from '../../pipes/GPXFilesFilterPipe';
 import {MDFilesFilterPipe} from '../../pipes/MDFilesFilterPipe';
 import {ContentLoaderService, ContentWrapperWithError} from './contentLoader.service';
+import { UploadService } from './upload.service';
 
 @Component({
   selector: 'app-gallery',
@@ -30,6 +31,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
 
   public showSearchBar = false;
   public showShare = false;
+  public showUpload = false;
   public showRandomPhotoBuilder = false;
   public blogOpen = Config.Gallery.TopBlogStartsOpen;
 
@@ -57,6 +59,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
     private authService: AuthenticationService,
     private router: Router,
     private shareService: ShareService,
+    private uploadService: UploadService,
     private route: ActivatedRoute,
     private navigation: NavigationService,
     private filterService: FilterService,
@@ -125,6 +128,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
     this.showShare =
       Config.Sharing.enabled &&
       this.authService.isAuthorized(UserRoles.User);
+    this.showUpload = this.authService.canUpload();
     this.showRandomPhotoBuilder =
       Config.RandomPhoto.enabled &&
       this.authService.isAuthorized(UserRoles.User);

@@ -25,6 +25,7 @@ import {DeviceDetectorService} from 'ngx-device-detector';
 export class FrameComponent {
   @Input() showSearch = false;
   @Input() showShare = false;
+  @Input() showUpload = false;
   public readonly user: BehaviorSubject<UserDTO>;
   public readonly authenticationRequired = Config.Users.authenticationRequired;
   public readonly title = Config.Server.applicationTitle;
