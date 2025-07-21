@@ -51,6 +51,7 @@
     "locale": "0.1.0",
     "node-geocoder": "4.2.0",
     "nodemailer": "6.9.4",
+    "parse-multipart-data": "^1.5.0",
     "reflect-metadata": "0.1.13",
     "sharp": "0.31.3",
     "ts-node-iptc": "1.0.11",
@@ -148,8 +149,8 @@
     "zone.js": "0.12.0"
   },
   "optionalDependencies": {
-    "ffmpeg-static": "5.1.0",
-    "ffprobe-static": "3.1.0",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
     "mysql": "2.18.1"
   },
   "engines": {

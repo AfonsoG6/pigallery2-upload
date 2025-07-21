@@ -23,7 +23,8 @@
       <div class="row mb-3">
         <div class="col-12">
           <div class="drop-zone" 
-                [class.dragover]="isDragOver" 
+                [class.dragover]="status === 0 && isDragOver"
+                [class.disabled]="status !== 0"
                 (drop)="onFileDropped($event)" 
                 (dragover)="onDragOver($event)" 
                 (dragleave)="onDragLeave()" 
@@ -35,14 +36,51 @@
           <ul class="list-group">
             <li class="list-group-item" *ngFor="let file of files | keyvalue">
               <span>{{ file.key }}</span>
-              <button type="button" class="btn btn-danger btn-sm float-end" (click)="removeFile(file.key)" i18n>Remove</button>
+              <ng-container *ngIf="status === 0">
+                <button type="button" class="btn btn-danger btn-sm float-end" (click)="removeFile(file.key)" i18n>Remove</button>
+              </ng-container>
+              <ng-container *ngIf="status !== 0">
+                <ng-icon *ngIf="successfulFiles.includes(file.key)" name="ionCheckmarkCircleOutline" class="text-success ms-2"></ng-icon>
+                <ng-icon *ngIf="failedFiles.includes(file.key)" name="ionCloseCircleOutline" class="text-danger ms-2"></ng-icon>
+              </ng-container>
             </li>
           </ul>
         </div>
       </div>
+      <div class="row">
+        <div class="col-4">
+          <label class="control-label" for="autoOrganize" i18n>Auto-organize:</label>
+        </div>
+        <div class="col-8">
+          <div class="form-check form-switch">
+            <input class="form-check-input"
+                   type="checkbox"
+                   role="switch"
+                   id="autoOrganize"
+                   (change)="toggleAutoOrganize($event)"
+                   [checked]="autoOrganize"
+                   [disabled]="status !== 0">
+          </div>
+        </div>
+      </div>
+      <ng-container *ngIf="!autoOrganize">
+        <div class="row">
+          <div class="col-4">
+            <label class="control-label" for="uploadDir" i18n>Target directory:</label>
+          </div>
+          <div class="col-8">
+            <input type="text"
+                  id="uploadDir"
+                  class="full-width form-control"
+                  (change)="setUploadDir($event)"
+                  [ngModel]="uploadDir">
+          </div>
+        </div>
+      </ng-container>
     </form>
   </div>
   <div class="modal-footer">
-    <button type="button" class="btn btn-primary" (click)="uploadFiles()" [disabled]="uploading" i18n>Upload</button>
+    <button type="button" class="btn" (click)="resetForm()" [disabled]="status === 1" i18n>Reset</button>
+    <button type="button" class="btn btn-primary" (click)="uploadFiles()" [disabled]="status !== 0" i18n>Upload</button>
   </div>
 </ng-template>

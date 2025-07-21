@@ -288,7 +288,6 @@ export class PublicRouter {
         '/faces',
         '/albums',
         '/search*',
-        '/upload',
       ],
       AuthenticationMWs.tryAuthenticate,
       addTPl, // add template after authentication was successful
@@ -304,7 +303,6 @@ export class PublicRouter {
           '/' + l + '/share*',
           '/' + l + '/admin',
           '/' + l + '/search*',
-          '/' + l + '/upload',
         ],
         redirectToBase(l)
       );

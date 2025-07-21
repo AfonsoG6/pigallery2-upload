@@ -16,7 +16,7 @@ ng-icon{
 }
 
 .drop-zone {
-  border: 2px dashed #ccc;
+  border: 2px dashed var(--bs-secondary-bg);
   border-radius: 5px;
   padding: 1rem;
   text-align: center;
@@ -25,12 +25,20 @@ ng-icon{
 }
 
 .drop-zone:hover {
-  background-color: var(--bs-secondary-bg);
+  background-color: var(--bs-tertiary-bg);
 }
 
 .drop-zone.dragover {
   border-color: yellow;
-  background-color: var(--bs-secondary-bg);
+  background-color: var(--bs-tertiary-bg);
+}
+
+.drop-zone.disabled {
+  background-color: var(--bs-tertiary-bg); /* Gray out the drop-zone */
+  border: 2px solid var(--bs-secondary-bg);
+  cursor: not-allowed;
+  pointer-events: none; /* Disable interactions */
+  opacity: 0.6;
 }
 
 .file-input {
@@ -61,4 +69,8 @@ ng-icon{
 .list-group-item .btn {
   flex-shrink: 0;
   margin-left: 0.5rem;
+}
+
+.list-group-item ng-icon {
+  vertical-align: middle;
 }

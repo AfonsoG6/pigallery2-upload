@@ -10,6 +10,7 @@ import {SupportedFormats} from '../../common/SupportedFormats';
 import {ServerTimingMWs} from '../middlewares/ServerTimingMWs';
 import {MetaFileMWs} from '../middlewares/MetaFileMWs';
 import {Config} from '../../common/config/private/Config';
+import {raw} from 'body-parser';
 
 export class GalleryRouter {
   public static route(app: Express): void {
@@ -25,6 +26,8 @@ export class GalleryRouter {
     this.addRandom(app);
     this.addDirectoryList(app);
     this.addDirectoryZip(app);
+    this.addUpload(app);
+    this.addUploadOrganize(app);
 
     this.addSearch(app);
     this.addAutoComplete(app);
@@ -249,6 +252,37 @@ export class GalleryRouter {
         ThumbnailGeneratorMWs.generateIconFactory(ThumbnailSourceType.Photo),
         ServerTimingMWs.addServerTiming,
         RenderingMWs.renderFile
+    );
+  }
+  
+  protected static addUpload(app: Express): void {
+    app.post(
+        Config.Server.apiPath + '/gallery/upload',
+        // common part
+        AuthenticationMWs.authenticate,
+        AuthenticationMWs.authorise(UserRoles.User),
+        VersionMWs.injectGalleryVersion,
+
+        // specific part
+        raw({type: 'multipart/form-data', limit: Config.Upload.maxFileSizeMb + 'mb'}),
+        GalleryMWs.parseAndCreateFiles,
+        ServerTimingMWs.addServerTiming,
+        RenderingMWs.renderResult
+    );
+  }
+
+  protected static addUploadOrganize(app: Express): void {
+    app.post(
+        Config.Server.apiPath + '/gallery/upload/organize',
+        // common part
+        AuthenticationMWs.authenticate,
+        AuthenticationMWs.authorise(UserRoles.User),
+        VersionMWs.injectGalleryVersion,
+
+        // specific part
+        GalleryMWs.organizeUploadedFiles,
+        ServerTimingMWs.addServerTiming,
+        RenderingMWs.renderResult
     );
   }
 

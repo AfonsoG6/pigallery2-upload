@@ -284,6 +284,39 @@ export class ClientUploadConfig {
     description: $localize`Enables uploading.`
   })
   enabled: boolean = true;
+
+  @ConfigProperty({
+    type: 'unsignedInt',
+    tags:
+      {
+        name: $localize`Max file size`,
+        priority: ConfigPriority.advanced,
+        unit: 'MB'
+      },
+    description: $localize`Maximum file size that can be uploaded in MB.`
+  })
+  maxFileSizeMb: number = 5000; // 5GB
+
+  @ConfigProperty({
+    tags:
+      {
+        name: $localize`Default upload path`,
+        priority: ConfigPriority.advanced
+      },
+    description: $localize`Folder where the uploaded files are stored by default before they are organized.`
+  })
+  defaultUploadPath: string = 'uploads';
+
+  @ConfigProperty({
+    tags:
+      {
+        name: $localize`Image Organizer script path`,
+        priority: ConfigPriority.advanced,
+        uiOptional: true
+      },
+    description: $localize`Path to the image organizer script that organizes the uploaded files into directories.`
+  })
+  imageOrganizerScriptPath: string = '';
 }
 
 @SubConfigClass({tags: {client: true}, softReadonly: true})

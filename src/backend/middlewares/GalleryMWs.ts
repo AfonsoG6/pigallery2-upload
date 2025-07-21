@@ -17,6 +17,8 @@ import {LocationLookupException} from '../exceptions/LocationLookupException';
 import {SupportedFormats} from '../../common/SupportedFormats';
 import {ServerTime} from './ServerTimingMWs';
 import {SortByTypes} from '../../common/entities/SortingMethods';
+import * as multipart from 'parse-multipart-data';
+import { spawnSync } from 'child_process';
 
 export class GalleryMWs {
   @ServerTime('1.db', 'List Directory')
@@ -341,5 +343,189 @@ export class GalleryMWs {
         )
       );
     }
+  }
+
+  public static async parseAndCreateFiles(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    if (Config.Upload.enabled === false) {
+      return next();
+    }
+
+    if (!req.headers['content-type']) {
+      return next(
+        new ErrorDTO(
+          ErrorCodes.INPUT_ERROR,
+          'No content type header found for upload'
+        )
+      );
+    }
+
+    if (req.headers['content-type'].indexOf('multipart/form-data') === -1) {
+      return next(
+        new ErrorDTO(
+          ErrorCodes.INPUT_ERROR,
+          'Content type header is not multipart/form-data for upload'
+        )
+      );
+    }
+
+    const boundary = multipart.getBoundary(req.headers['content-type']);
+    if (!boundary) {
+      return next(
+        new ErrorDTO(
+          ErrorCodes.INPUT_ERROR,
+          'No boundary found in content type header for upload'
+        )
+      );
+    }
+
+    const parts = multipart.parse(req.body, boundary);
+    const uploadPath = parts.find(
+      (p): boolean => p.name === 'uploadPath' && p.data && p.data.byteLength > 0
+    );
+    const files = parts.filter(
+      (p): boolean => (
+        p.name === "file" &&
+        p.filename &&
+        (SupportedFormats.WithDots.Photos.includes(path.extname(p.filename).toLowerCase()) ||
+         SupportedFormats.WithDots.Videos.includes(path.extname(p.filename).toLowerCase())) &&
+        p.data &&
+        p.data.byteLength > 0 &&
+        p.data.byteLength < Config.Upload.maxFileSizeMb * 1000 * 1000
+      )
+    );
+    if (files.length === 0) {
+      return next(
+        new ErrorDTO(
+          ErrorCodes.INPUT_ERROR,
+          'No valid files found in upload request'
+        )
+      );
+    }
+    // Guarantee that the uploadPath does not contain any path traversal characters
+    
+    var finalUploadPath = path.join(
+      Config.Upload.defaultUploadPath,
+      req.session['user'].name
+    );
+    if (uploadPath && uploadPath.data) {
+      // Guarantee that the uploadPath does not contain any path traversal characters
+      const uploadPathString = uploadPath.data.toString();
+      if (uploadPathString.match(/(^\.{2}\/|\/\.{2}\/|\/\.{2}$|^\.{2}$)/)) {
+        return next(
+          new ErrorDTO(
+            ErrorCodes.INPUT_ERROR,
+            'Path traversal detected in uploadPath: ' + uploadPathString
+          )
+        );
+      }
+      finalUploadPath = path.join(
+        Config.Media.folder,
+        uploadPathString,
+      )
+    }
+
+    try {
+      await fsp.mkdir(finalUploadPath, {recursive: true});
+    }
+    catch (e) {
+      return next(
+        new ErrorDTO(
+          ErrorCodes.GENERAL_ERROR,
+          'Error creating target directory for upload: ' + e.toString()
+        )
+      );
+    }
+
+    for (const file of files) {
+      const filePath = path.join(finalUploadPath, file.filename);
+      try {
+        await fsp.writeFile(filePath, file.data);
+        await fsp.chmod(filePath, 0o666);
+      }
+      catch (e) {
+        return next(
+          new ErrorDTO(
+            ErrorCodes.GENERAL_ERROR,
+            'Error writing file to disk: ' + e.toString()
+          )
+        );
+      }
+    }
+    req.resultPipe = "ok";
+    return next();
+  }
+
+  public static async organizeUploadedFiles(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    if (Config.Upload.enabled === false) {
+      return next();
+    }
+
+    if (!req.session['user'] || !req.session['user'].name) {
+      return next(
+        new ErrorDTO(
+          ErrorCodes.INPUT_ERROR,
+          'User not logged in or user name not available'
+        )
+      );
+    }
+
+    const sourcePath = path.join(
+      Config.Upload.defaultUploadPath,
+      req.session['user'].name
+    );
+    const destinationPath = path.join(
+      Config.Media.folder,
+      req.session['user'].name
+    );
+
+    const pythonScriptPath = Config.Upload.imageOrganizerScriptPath;
+    if (!pythonScriptPath || pythonScriptPath === "") {
+      return next(
+        new ErrorDTO(
+          ErrorCodes.INPUT_ERROR,
+          'Image organizer script path is not configured'
+        )
+      );
+    }
+    // Check if the python script exists
+    try {
+      await fsp.access(pythonScriptPath);
+    } catch (e) {
+      return next(
+        new ErrorDTO(
+          ErrorCodes.INPUT_ERROR,
+          'Image organizer script not found at: ' + pythonScriptPath
+        )
+      );
+    }
+
+    const pythonArgs = [
+      '--source', sourcePath,
+      '--destination', destinationPath
+    ];
+
+    if (pythonScriptPath !== "") {
+      try {
+        const pythonProcess = spawnSync('python', [pythonScriptPath, ...pythonArgs]);
+      }
+      catch (e) {
+        return next(
+          new ErrorDTO(
+            ErrorCodes.GENERAL_ERROR,
+            'Error running image organizer script: ' + e.toString()
+          )
+        );
+      }
+    }
+    req.resultPipe = "ok";
+    return next();
   }
 }

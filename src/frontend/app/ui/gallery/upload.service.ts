@@ -5,14 +5,26 @@ import { NetworkService } from '../../model/network/network.service';
 export class UploadService {
   constructor(private networkService: NetworkService) {}
 
-  public async uploadFiles(files: File[]): Promise<void> {
+  public async uploadFile(file: File, uploadPath: string): Promise<void> {
     const formData = new FormData();
-    files.forEach((file) => formData.append("files", file));
-
+    formData.append("file", file);
+    if (uploadPath) {
+      formData.append("uploadPath", uploadPath);
+    }
+    
     try {
-      await this.networkService.postMultipartFormData('/upload/', formData);
+      return await this.networkService.postMultipartFormData('/gallery/upload/', formData);
     } catch (error) {
       console.error('Error uploading files:', error);
+      throw error;
+    }
+  }
+
+  public async organizeUploadedFiles(): Promise<void> {
+    try {
+      return await this.networkService.postJson('/gallery/upload/organize', {});
+    } catch (error) {
+      console.error('Error organizing uploaded files:', error);
       throw error;
     }
   }

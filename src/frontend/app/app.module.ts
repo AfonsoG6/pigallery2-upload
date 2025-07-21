@@ -135,6 +135,8 @@ import {
   ionDocumentTextOutline,
   ionDownloadOutline,
   ionCloudUploadOutline,
+  ionCheckmarkCircleOutline,
+  ionCloseCircleOutline,
   ionExpandOutline,
   ionFileTrayFullOutline,
   ionFlagOutline,
@@ -238,7 +240,7 @@ Marker.prototype.options.icon = MarkerFactory.defIcon;
     BrowserAnimationsModule,
     AppRoutingModule,
     NgIconsModule.withIcons({
-      ionDownloadOutline, ionCloudUploadOutline, ionFunnelOutline,
+      ionDownloadOutline, ionCloudUploadOutline, ionCheckmarkCircleOutline, ionCloseCircleOutline, ionFunnelOutline,
       ionGitBranchOutline, ionArrowDownOutline, ionArrowUpOutline,
       ionStarOutline, ionStar, ionCalendarOutline, ionPersonOutline, ionShuffleOutline,
       ionPeopleOutline,
