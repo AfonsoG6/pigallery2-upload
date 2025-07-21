@@ -58,8 +58,13 @@ ng-icon {
   font-size: 1.15em
 }
 
-ng-icon:not([strokeWidth]) svg {
+ng-icon:not([id="resultIcon"]):not([strokeWidth]) svg {
   vertical-align: unset;
+  --ng-icon__stroke-width: 40;
+}
+
+ng-icon[id="resultIcon"]:not([strokeWidth]) svg {
+  vertical-align: text-top;
   --ng-icon__stroke-width: 40;
 }
 

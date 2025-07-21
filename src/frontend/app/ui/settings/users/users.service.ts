@@ -23,9 +23,10 @@ export class UsersSettingsService {
     return this.networkService.deleteJson('/user/' + user.id);
   }
 
-  public updateRole(user: UserDTO): Promise<void> {
-    return this.networkService.postJson('/user/' + user.id + '/role', {
+  public updateUser(user: UserDTO): Promise<void> {
+    return this.networkService.postJson('/user/' + user.id, {
       newRole: user.role,
+      newPermissions: user.permissions,
     });
   }
 }

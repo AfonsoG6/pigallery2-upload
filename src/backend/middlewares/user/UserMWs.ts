@@ -55,7 +55,7 @@ export class UserMWs {
     }
   }
 
-  public static async changeRole(
+  public static async updateUser(
       req: Request,
       res: Response,
       next: NextFunction
@@ -67,7 +67,8 @@ export class UserMWs {
         typeof req.params === 'undefined' ||
         typeof req.params.id === 'undefined' ||
         typeof req.body === 'undefined' ||
-        typeof req.body.newRole === 'undefined'
+        typeof req.body.newRole === 'undefined' ||
+        typeof req.body.newPermissions === 'undefined'
     ) {
       return next();
     }
@@ -76,6 +77,10 @@ export class UserMWs {
       await ObjectManagers.getInstance().UserManager.changeRole(
           parseInt(req.params.id, 10),
           req.body.newRole
+      );
+      await ObjectManagers.getInstance().UserManager.changePermissions(
+          parseInt(req.params.id, 10),
+          req.body.newPermissions
       );
       return next();
     } catch (err) {

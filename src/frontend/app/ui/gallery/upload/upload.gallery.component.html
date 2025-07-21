@@ -36,20 +36,18 @@
           <ul class="list-group">
             <li class="list-group-item" *ngFor="let file of files | keyvalue">
               <span>{{ file.key }}</span>
+              <ng-icon *ngIf="successfulFiles.includes(file.key)" id="resultIcon" name="ionCheckmarkCircleOutline" class="text-success ms-2"></ng-icon>
+              <ng-icon *ngIf="failedFiles.includes(file.key)" id="resultIcon" name="ionCloseCircleOutline" class="text-danger ms-2"></ng-icon>
               <ng-container *ngIf="status === 0">
                 <button type="button" class="btn btn-danger btn-sm float-end" (click)="removeFile(file.key)" i18n>Remove</button>
-              </ng-container>
-              <ng-container *ngIf="status !== 0">
-                <ng-icon *ngIf="successfulFiles.includes(file.key)" name="ionCheckmarkCircleOutline" class="text-success ms-2"></ng-icon>
-                <ng-icon *ngIf="failedFiles.includes(file.key)" name="ionCloseCircleOutline" class="text-danger ms-2"></ng-icon>
               </ng-container>
             </li>
           </ul>
         </div>
       </div>
-      <div class="row">
+      <div class="row mb-3">
         <div class="col-4">
-          <label class="control-label" for="autoOrganize" i18n>Auto-organize:</label>
+          <label class="control-label" for="autoOrganize" style="vertical-align: middle;" i18n>Auto-organize:</label>
         </div>
         <div class="col-8">
           <div class="form-check form-switch">
@@ -57,26 +55,29 @@
                    type="checkbox"
                    role="switch"
                    id="autoOrganize"
-                   (change)="toggleAutoOrganize($event)"
+                   (change)="onChangeAutoOrganize($event)"
                    [checked]="autoOrganize"
                    [disabled]="status !== 0">
           </div>
         </div>
       </div>
-      <ng-container *ngIf="!autoOrganize">
-        <div class="row">
-          <div class="col-4">
-            <label class="control-label" for="uploadDir" i18n>Target directory:</label>
-          </div>
-          <div class="col-8">
+      <div class="row">
+        <div class="col-4">
+          <label class="control-label" for="uploadDir" style="vertical-align: middle;" i18n>Target directory:</label>
+        </div>
+        <div class="col-8 flex-container">
+          <div style="flex-grow:1">
             <input type="text"
                   id="uploadDir"
-                  class="full-width form-control"
+                  class="form-control"
+                  style="display: flex;"
                   (change)="setUploadDir($event)"
-                  [ngModel]="uploadDir">
+                  [ngModel]="uploadDir"
+                  [disabled]="status !== 0">
           </div>
+          <ng-icon *ngIf="invalidPathError" id="resultIcon" name="ionCloseCircleOutline" class="text-danger ms-2 me-2"></ng-icon>
         </div>
-      </ng-container>
+      </div>
     </form>
   </div>
   <div class="modal-footer">

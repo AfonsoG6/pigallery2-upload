@@ -15,6 +15,8 @@
     <tr>
       <th i18n>Name</th>
       <th i18n>Role</th>
+      <th i18n>Permissions (CSV)</th>
+      <th></th>
       <th></th>
     </tr>
     </thead>
@@ -22,7 +24,7 @@
     <tr *ngFor="let user of users">
       <td>{{user.name}}</td>
       <td *ngIf="canModifyUser(user)">
-        <select class="form-select" [(ngModel)]="user.role" (change)="updateRole(user)" required>
+        <select class="form-select" [(ngModel)]="user.role" required>
           <option *ngFor="let repository of userRoles" [value]="repository.key">
             {{repository.value}}
           </option>
@@ -30,6 +32,24 @@
       </td>
       <td *ngIf="!canModifyUser(user)">
         {{user.role | stringifyRole}}
+      </td>
+      <!-- Input for user permissions (a string[] with directories that the user can access)-->
+      <td *ngIf="canModifyUser(user)">
+        <input type="text" class="form-control permission-input" placeholder="Example: /dir1;/dir2"
+               [value]="getPermissionsString(user)"
+               (change)="onPermissionsChange(user, $event)">
+      </td>
+      <td *ngIf="!canModifyUser(user)">
+        <span class="permission-input">
+          {{getPermissionsString(user)}}
+        </span>
+      </td>
+      <td>
+        <button [disabled]="!canModifyUser(user)" (click)="updateUser(user)"
+                  [ngClass]="canModifyUser(user)? 'btn-success':'btn-secondary'"
+                  class="btn float-end">
+          <ng-icon name="ionSaveOutline" title="Save" i18n-title></ng-icon>
+        </button>
       </td>
       <td>
         <button [disabled]="!canModifyUser(user)" (click)="deleteUser(user)"
@@ -69,6 +89,9 @@
             <option *ngFor="let repository of userRoles" [value]="repository.key">{{repository.value}}
             </option>
           </select>
+          <input type="text" class="form-control permission-input" placeholder="Permissions (Example: /dir1;/dir2)"
+               [value]="getPermissionsString(newUser)"
+               (change)="onPermissionsChange(newUser, $event)">
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" (click)="userModal.hide()" i18n>Close</button>

@@ -11,10 +11,6 @@
   padding-bottom: 1px;
 }
 
-ng-icon{
-  vertical-align: text-top;
-}
-
 .drop-zone {
   border: 2px dashed var(--bs-secondary-bg);
   border-radius: 5px;
@@ -34,10 +30,10 @@ ng-icon{
 }
 
 .drop-zone.disabled {
-  background-color: var(--bs-tertiary-bg); /* Gray out the drop-zone */
+  background-color: var(--bs-tertiary-bg);
   border: 2px solid var(--bs-secondary-bg);
   cursor: not-allowed;
-  pointer-events: none; /* Disable interactions */
+  pointer-events: none;
   opacity: 0.6;
 }
 
@@ -71,6 +67,9 @@ ng-icon{
   margin-left: 0.5rem;
 }
 
-.list-group-item ng-icon {
-  vertical-align: middle;
+.flex-container {
+  display:flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
 }

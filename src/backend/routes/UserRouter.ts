@@ -16,7 +16,7 @@ export class UserRouter {
     this.addCreateUser(app);
     this.addDeleteUser(app);
     this.addListUsers(app);
-    this.addChangeRole(app);
+    this.addUpdateUser(app);
   }
 
   private static addLogin(app: Express): void {
@@ -81,13 +81,13 @@ export class UserRouter {
     );
   }
 
-  private static addChangeRole(app: Express): void {
+  private static addUpdateUser(app: Express): void {
     app.post(
-        Config.Server.apiPath + '/user/:id/role',
+        Config.Server.apiPath + '/user/:id',
         AuthenticationMWs.authenticate,
         AuthenticationMWs.authorise(UserRoles.Admin),
         UserRequestConstrainsMWs.notSelfRequestOr2Admins,
-        UserMWs.changeRole,
+        UserMWs.updateUser,
         ServerTimingMWs.addServerTiming,
         RenderingMWs.renderOK
     );

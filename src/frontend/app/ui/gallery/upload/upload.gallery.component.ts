@@ -6,6 +6,8 @@ import { Utils } from '../../../../../common/Utils';
 import { ContentLoaderService } from '../contentLoader.service';
 import { Subscription } from 'rxjs';
 import { ContentWrapper } from '../../../../../common/entities/ConentWrapper';
+import { AuthenticationService } from '../../../model/network/authentication.service';
+import { ErrorCodes } from '../../../../../common/entities/Error';
 
 enum UploadStatus {
   STANDBY = 0,
@@ -33,14 +35,16 @@ export class GalleryUploadComponent implements OnInit {
   autoOrganize = true;
 
   currentDir = '';
-  uploadDir = '';
+  uploadDir = this.authService.user.value.name;
+  invalidPathError = false;
   contentSubscription: Subscription = null;
 
   constructor(
     private uploadService: UploadService,
     private notification: NotificationService,
     private modalService: BsModalService,
-    private galleryService: ContentLoaderService
+    private galleryService: ContentLoaderService,
+    private authService: AuthenticationService,
   ) {}
 
   ngOnInit(): void {
@@ -51,11 +55,11 @@ export class GalleryUploadComponent implements OnInit {
                   content.directory.path,
                   content.directory.name
               );
-              this.uploadDir = this.currentDir;
+              if (!this.autoOrganize) this.uploadDir = this.currentDir;
             }
             else {
               this.currentDir = '';
-              this.uploadDir = '';
+              if (!this.autoOrganize) this.uploadDir = '';
             }
           }
       );
@@ -117,31 +121,52 @@ export class GalleryUploadComponent implements OnInit {
 
     this.status = UploadStatus.UPLOADING;
     for (const fileName in this.files) {
+      if (this.successfulFiles.includes(fileName)) continue;
+
       try {
-        if (this.autoOrganize) await this.uploadService.uploadFile(this.files[fileName], null);
-        else await this.uploadService.uploadFile(this.files[fileName], this.uploadDir);
+        await this.uploadService.uploadFile(this.files[fileName], this.autoOrganize, this.uploadDir);
         this.successfulFiles.push(fileName);
+        if (this.failedFiles.includes(fileName)) {
+          this.failedFiles = this.failedFiles.filter(f => f !== fileName);
+        }
       } catch (error) {
         this.failedFiles.push(fileName);
+        if (error.code == ErrorCodes.INVALID_PATH_ERROR) {
+          this.notification.error('Invalid upload path: ' + this.uploadDir);
+          this.invalidPathError = true;
+          this.status = UploadStatus.STANDBY;
+          return;
+        }
       }
     }
     if (this.successfulFiles.length === 0 && this.failedFiles.length > 0) {
-      this.notification.error('Failed to upload any files.');
-      this.status = UploadStatus.FINISHED;
+      this.notification.error('Failed to upload files.');
+      this.status = UploadStatus.STANDBY;
       return;
     }
 
     this.notification.success('Successfully uploaded '+ this.successfulFiles.length + ' files.');
     if (this.autoOrganize) {
       try {
-        await this.uploadService.organizeUploadedFiles();
+        await this.uploadService.organizeUploadedFiles(this.uploadDir);
         this.notification.success('Files organized successfully.');
       }
       catch (error) {
-        this.notification.error('Failed to organize files.');
+        if (error.code == ErrorCodes.INVALID_PATH_ERROR) {
+          this.notification.error('Invalid upload path: ' + this.uploadDir);
+          this.invalidPathError = true;
+          this.status = UploadStatus.STANDBY;
+          return;
+        }
+        else {
+          this.notification.error('Failed to organize files.');
+        }
       }
     }
-    this.status = UploadStatus.FINISHED;
+    this.invalidPathError = false;
+    if (this.successfulFiles.length == Object.keys(this.files).length) {
+      this.status = UploadStatus.FINISHED;
+    }
   }
 
   openModal(template: TemplateRef<unknown>): void {
@@ -164,7 +189,8 @@ export class GalleryUploadComponent implements OnInit {
     this.successfulFiles = [];
     this.failedFiles = [];
     this.autoOrganize = true;
-    this.uploadDir = this.currentDir;
+    this.uploadDir = this.authService.user.value.name;
+    this.invalidPathError = false;
   }
 
   triggerFileInput(): void {
@@ -175,8 +201,14 @@ export class GalleryUploadComponent implements OnInit {
     }
   }
 
-  toggleAutoOrganize(event: Event): void {
+  onChangeAutoOrganize(event: Event): void {
     this.autoOrganize = (event.target as HTMLInputElement).checked;
+    if (this.autoOrganize) {
+      this.uploadDir = this.authService.user.value.name
+    }
+    else {
+      this.uploadDir = this.currentDir;
+    }
   }
 
   setUploadDir(event: Event): void {

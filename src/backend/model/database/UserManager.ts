@@ -44,4 +44,11 @@ export class UserManager {
     return userRepository.save(user);
   }
 
+  public async changePermissions(id: number, newPermissions: string[]): Promise<UserEntity> {
+    const connection = await SQLConnection.getConnection();
+    const userRepository = connection.getRepository(UserEntity);
+    const user = await userRepository.findOneBy({id});
+    user.permissions = newPermissions;
+    return userRepository.save(user);
+  }
 }

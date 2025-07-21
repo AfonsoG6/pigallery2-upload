@@ -355,37 +355,37 @@ export class GalleryMWs {
     }
 
     if (!req.headers['content-type']) {
-      return next(
-        new ErrorDTO(
-          ErrorCodes.INPUT_ERROR,
-          'No content type header found for upload'
-        )
-      );
+      return next(new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No content type header found for upload', req));
     }
 
     if (req.headers['content-type'].indexOf('multipart/form-data') === -1) {
-      return next(
-        new ErrorDTO(
-          ErrorCodes.INPUT_ERROR,
-          'Content type header is not multipart/form-data for upload'
-        )
-      );
+      return next(new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Content type header is not multipart/form-data for upload', req));
     }
 
     const boundary = multipart.getBoundary(req.headers['content-type']);
     if (!boundary) {
-      return next(
-        new ErrorDTO(
-          ErrorCodes.INPUT_ERROR,
-          'No boundary found in content type header for upload'
-        )
-      );
+      return next(new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No boundary found in content type header for upload', req));
     }
 
     const parts = multipart.parse(req.body, boundary);
-    const uploadPath = parts.find(
+    const autoOrganizePart = parts.find(
+      (p): boolean => p.name === 'autoOrganize' && p.data && p.data.byteLength > 0
+    );
+    if (!autoOrganizePart || !autoOrganizePart.data || (
+          autoOrganizePart.data.toString() !== 'true' &&
+          autoOrganizePart.data.toString() !== 'false')) {
+      return next(new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Missing or invalid parameter: autoOrganize', req)
+      );
+    }
+    const autoOrganize = autoOrganizePart.data.toString() === 'true';
+    const uploadPathPart = parts.find(
       (p): boolean => p.name === 'uploadPath' && p.data && p.data.byteLength > 0
     );
+    if (!uploadPathPart || !uploadPathPart.data) {
+      return next(new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Missing parameter: uploadPath', req));
+    }
+    var uploadPath: string = uploadPathPart.data.toString();
+
     const files = parts.filter(
       (p): boolean => (
         p.name === "file" &&
@@ -398,61 +398,33 @@ export class GalleryMWs {
       )
     );
     if (files.length === 0) {
-      return next(
-        new ErrorDTO(
-          ErrorCodes.INPUT_ERROR,
-          'No valid files found in upload request'
-        )
-      );
+      return next(new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No valid files found in upload request', req));
     }
-    // Guarantee that the uploadPath does not contain any path traversal characters
     
-    var finalUploadPath = path.join(
-      Config.Upload.defaultUploadPath,
-      req.session['user'].name
-    );
-    if (uploadPath && uploadPath.data) {
-      // Guarantee that the uploadPath does not contain any path traversal characters
-      const uploadPathString = uploadPath.data.toString();
-      if (uploadPathString.match(/(^\.{2}\/|\/\.{2}\/|\/\.{2}$|^\.{2}$)/)) {
-        return next(
-          new ErrorDTO(
-            ErrorCodes.INPUT_ERROR,
-            'Path traversal detected in uploadPath: ' + uploadPathString
-          )
-        );
-      }
-      finalUploadPath = path.join(
-        Config.Media.folder,
-        uploadPathString,
-      )
+    if (UserDTOUtils.isDirectoryPathAvailable(uploadPath, req.session['user'].permissions) === false) {
+      return next(new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Upload path is not available for user', req));
     }
+    
+    uploadPath = path.join(
+      autoOrganize ? Config.Upload.defaultUploadPath : Config.Media.folder,
+      uploadPath
+    );
 
     try {
-      await fsp.mkdir(finalUploadPath, {recursive: true});
+      await fsp.mkdir(uploadPath, {recursive: true});
     }
     catch (e) {
-      return next(
-        new ErrorDTO(
-          ErrorCodes.GENERAL_ERROR,
-          'Error creating target directory for upload: ' + e.toString()
-        )
-      );
+      return next(new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error creating target directory for upload: ' + e.toString(), req));
     }
 
     for (const file of files) {
-      const filePath = path.join(finalUploadPath, file.filename);
+      const filePath = path.join(uploadPath, file.filename);
       try {
         await fsp.writeFile(filePath, file.data);
         await fsp.chmod(filePath, 0o666);
       }
       catch (e) {
-        return next(
-          new ErrorDTO(
-            ErrorCodes.GENERAL_ERROR,
-            'Error writing file to disk: ' + e.toString()
-          )
-        );
+        return next(new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error writing file to disk: ' + e.toString(), req));
       }
     }
     req.resultPipe = "ok";
@@ -469,61 +441,47 @@ export class GalleryMWs {
     }
 
     if (!req.session['user'] || !req.session['user'].name) {
-      return next(
-        new ErrorDTO(
-          ErrorCodes.INPUT_ERROR,
-          'User not logged in or user name not available'
-        )
-      );
+      return next(new ErrorDTO(ErrorCodes.INPUT_ERROR, 'User not logged in or user name not available', req));
+    }
+
+    if (!req.params || !req.params['uploadPath']) {
+      return next(new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Missing parameter: uploadPath', req));
+    }
+    const uploadPath = req.params['uploadPath'] as string;
+    if (UserDTOUtils.isDirectoryPathAvailable(uploadPath, req.session['user'].permissions) === false) {
+      return next(new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Upload path is not available for user', req));
     }
 
     const sourcePath = path.join(
       Config.Upload.defaultUploadPath,
-      req.session['user'].name
+      uploadPath
     );
     const destinationPath = path.join(
       Config.Media.folder,
-      req.session['user'].name
+      uploadPath
     );
 
     const pythonScriptPath = Config.Upload.imageOrganizerScriptPath;
     if (!pythonScriptPath || pythonScriptPath === "") {
-      return next(
-        new ErrorDTO(
-          ErrorCodes.INPUT_ERROR,
-          'Image organizer script path is not configured'
-        )
-      );
+      return next(new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Image organizer script path is not configured', req));
     }
     // Check if the python script exists
     try {
       await fsp.access(pythonScriptPath);
     } catch (e) {
-      return next(
-        new ErrorDTO(
-          ErrorCodes.INPUT_ERROR,
-          'Image organizer script not found at: ' + pythonScriptPath
-        )
-      );
+      return next(new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Image organizer script cannot be accessed: ' + pythonScriptPath, req));
     }
 
     const pythonArgs = [
       '--source', sourcePath,
       '--destination', destinationPath
     ];
-
-    if (pythonScriptPath !== "") {
-      try {
-        const pythonProcess = spawnSync('python', [pythonScriptPath, ...pythonArgs]);
-      }
-      catch (e) {
-        return next(
-          new ErrorDTO(
-            ErrorCodes.GENERAL_ERROR,
-            'Error running image organizer script: ' + e.toString()
-          )
-        );
-      }
+    
+    try {
+      spawnSync('python', [pythonScriptPath, ...pythonArgs]);
+    }
+    catch (e) {
+      return next(new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error running image organizer script: ' + e.toString(), req));
     }
     req.resultPipe = "ok";
     return next();

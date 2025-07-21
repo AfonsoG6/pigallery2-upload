@@ -299,9 +299,19 @@ export class Utils {
   }
 
   public static canonizePath(path: string): string {
-    return path
+    path = path
       .replace(new RegExp('\\\\', 'g'), '/')
       .replace(new RegExp('/+', 'g'), '/');
+    if (path !== "/" && path.startsWith('/')) {
+      path = path.substring(1);
+    }
+    if (path !== "/" && path.endsWith('/')) {
+      path = path.substring(0, path.length - 1);
+    }
+    if (path === '') {
+      path = '/';
+    }
+    return path;
   }
 
   static concatUrls(...args: string[]): string {

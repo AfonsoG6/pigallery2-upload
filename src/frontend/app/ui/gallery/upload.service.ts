@@ -5,12 +5,11 @@ import { NetworkService } from '../../model/network/network.service';
 export class UploadService {
   constructor(private networkService: NetworkService) {}
 
-  public async uploadFile(file: File, uploadPath: string): Promise<void> {
+  public async uploadFile(file: File, autoOrganize: boolean, uploadPath: string): Promise<void> {
     const formData = new FormData();
     formData.append("file", file);
-    if (uploadPath) {
-      formData.append("uploadPath", uploadPath);
-    }
+    formData.append("autoOrganize", String(autoOrganize));
+    formData.append("uploadPath", uploadPath);
     
     try {
       return await this.networkService.postMultipartFormData('/gallery/upload/', formData);
@@ -20,9 +19,12 @@ export class UploadService {
     }
   }
 
-  public async organizeUploadedFiles(): Promise<void> {
+  public async organizeUploadedFiles(uploadPath: string): Promise<void> {
+    const data = {
+      uploadPath: uploadPath
+    };
     try {
-      return await this.networkService.postJson('/gallery/upload/organize', {});
+      return await this.networkService.postJson('/gallery/upload/organize', data);
     } catch (error) {
       console.error('Error organizing uploaded files:', error);
       throw error;

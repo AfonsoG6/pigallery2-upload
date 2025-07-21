@@ -24,7 +24,6 @@ export class UsersComponent implements OnInit {
   public inProgress = false;
   Changed = false;
 
-
   constructor(
       private authService: AuthenticationService,
       private navigation: NavigationService,
@@ -65,12 +64,13 @@ export class UsersComponent implements OnInit {
 
 
   initNewUser(): void {
-    this.newUser = {role: UserRoles.User} as UserDTO;
+    this.newUser = {role: UserRoles.User, permissions: ["/"]} as UserDTO;
     this.childModal.show();
   }
 
   async addNewUser(): Promise<void> {
     try {
+      this.addDefaultPermissions(this.newUser)
       await this.userSettings.createUser(this.newUser);
       await this.getUsersList();
       this.childModal.hide();
@@ -83,8 +83,9 @@ export class UsersComponent implements OnInit {
     }
   }
 
-  async updateRole(user: UserDTO): Promise<void> {
-    await this.userSettings.updateRole(user);
+  async updateUser(user: UserDTO): Promise<void> {
+    this.addDefaultPermissions(user);
+    await this.userSettings.updateUser(user);
     await this.getUsersList();
     this.childModal.hide();
   }
@@ -106,4 +107,42 @@ export class UsersComponent implements OnInit {
     }
   }
 
+  addDefaultPermissions(user: UserDTO): void {
+    if (!user || !user.name) {
+      return;
+    }
+    user.permissions = Array.from(new Set(user.permissions.concat(
+      this.getDefaultPermissions(user)
+    )));
+  }
+
+  onPermissionsChange(user: UserDTO, event: Event): void {
+    const text = (event.target as HTMLInputElement).value;
+    if (text) {
+      user.permissions = Array.from(new Set(
+        text.split(';')
+        .map((p) => p.trim())
+        .filter((p) => p.length > 0)
+      ));
+    } else {
+      user.permissions = [];
+    }
+  }
+
+  getPermissionsString(user: UserDTO): string {
+    if (!user.permissions || user.permissions.length === 0) {
+      return '';
+    }
+    return user.permissions.map((p) => p.trim()).join('; ');
+  }
+
+  getDefaultPermissions(user: UserDTO): string[] {
+    if (!user || !user.name) {
+      return [];
+    }
+    if (user.role === UserRoles.Admin) {
+      return ["/*"];
+    }
+    return ["/", `${user.name}/*`];
+  }
 }

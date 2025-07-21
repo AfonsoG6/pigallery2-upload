@@ -26,25 +26,36 @@ export const UserDTOUtils = {
     }
     permissions = permissions.map((p) => Utils.canonizePath(p));
     path = Utils.canonizePath(path);
-    if (permissions.length === 0 || permissions[0] === '/*') {
+    if (path.match(/(^\.{2}\/|\/\.{2}\/|\/\.{2}$|^\.{2}$)/)) {
+      // Path traversal not allowed
+      return false;
+    }
+    if (permissions.length === 0) {
       return true;
     }
     for (let permission of permissions) {
-      if (permission === '/*') {
+      const permissionRegex = new RegExp("^" +
+        permission
+        .replace("*", ".*")
+        .replace("/", "\\/")
+        + "$"
+      );
+      if (permissionRegex.test(path)) {
+        console.log(`Path "${path}" matches permission "${permission}"`);
         return true;
       }
-      if (permission[permission.length - 1] === '*') {
-        permission = permission.slice(0, -1);
-        if (
-            path.startsWith(permission) &&
-            (!path[permission.length] || path[permission.length] === '/')
-        ) {
+      if (permission.endsWith("/*")) {
+        const permissionBaseDirRegex = new RegExp("^" +
+          permission
+          .substring(0, permission.length - 2)
+          .replace("*", ".*")
+          .replace("/", "\\/")
+          + "$"
+        );
+        if (permissionBaseDirRegex.test(path)) {
+          console.log(`Path "${path}" matches base directory permission "${permission}"`);
           return true;
         }
-      } else if (path === permission) {
-        return true;
-      } else if (path === '.' && permission === '/') {
-        return true;
       }
     }
     return false;
