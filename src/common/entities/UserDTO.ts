@@ -33,7 +33,7 @@ export const UserDTOUtils = {
     if (permissions.length === 0) {
       return true;
     }
-    for (let permission of permissions) {
+    for (const permission of permissions) {
       const permissionRegex = new RegExp("^" +
         permission
         .replace("*", ".*")

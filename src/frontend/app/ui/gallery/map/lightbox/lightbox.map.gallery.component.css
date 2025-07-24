@@ -1,6 +1,6 @@
 .lightbox {
   position: fixed; /* Stay in place */
-  z-index: 1100; /* Sit on top */
+  z-index: 1045; /* Sit on top */
   left: 0;
   top: 0;
   width: 100%; /* Full width */
@@ -29,7 +29,7 @@
 
 .blackCanvas {
   position: fixed; /* Stay in place */
-  z-index: 1099; /* Sit on top */
+  z-index: 1044; /* Sit on top */
   left: 0;
   top: 0;
   width: 100%; /* Full width */
@@ -43,7 +43,7 @@
 }
 
 #controllers-container {
-  z-index: 1100;
+  z-index: 1045;
   right: 0;
   top: 0;
   position: fixed;

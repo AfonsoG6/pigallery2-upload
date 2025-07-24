@@ -49,8 +49,26 @@
               <ng-icon class="me-2"
                        name="ionDownloadOutline" title="Download" i18n-title></ng-icon>
               <span i18n>Download</span>
-              <small>(shift + D)</small>
+              <small style="margin-left:4px">(shift + D)</small>
             </a>
+          </li>
+          <li role="menuitem">
+            <app-file-actions *ngIf="activePhoto"
+                              class="dropdown-item"
+                              style="padding: 0 0;"
+                              [action]="'move'"
+                              [showText]="true"
+                              [sourcePaths]="[activePhoto.gridMedia.getReadableRelativePath()]">
+            </app-file-actions>
+          </li>
+          <li role="menuitem">
+            <app-file-actions *ngIf="activePhoto"
+                              class="dropdown-item"
+                              style="padding: 0 0;"
+                              [action]="'delete'"
+                              [showText]="true"
+                              [sourcePaths]="[activePhoto.gridMedia.getReadableRelativePath()]">
+            </app-file-actions>
           </li>
           <li role="menuitem"
               dropdown>

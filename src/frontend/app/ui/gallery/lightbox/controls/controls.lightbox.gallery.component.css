@@ -27,7 +27,7 @@
 }
 
 #controllers-container {
-  z-index: 1100;
+  z-index: 1045;
   color: white;
 }
 
@@ -88,7 +88,7 @@
   position: absolute;
   z-index: 4;
   top: 0;
-  line-height: 0;
+  line-height: 100%;
 }
 .controls-top ng-icon {
   vertical-align: middle;
@@ -319,4 +319,14 @@ canvas {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+}
+
+.dropdown-item {
+  display:flex;
+  flex:auto;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: flex-start;
+  align-items: center;
 }

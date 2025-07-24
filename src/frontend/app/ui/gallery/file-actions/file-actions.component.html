@@ -1,0 +1,47 @@
+<div *ngIf="action === 'move'" class="action-dropdown-item" style="color: var(--bs-primary-text-emphasis);" (click)="openModal(fileActionsModal)">
+  <ng-icon class="me-2"
+           name="ionFolderOutline" title="Move" i18n-title></ng-icon>
+  <span *ngIf="showText" i18n>Move</span>
+</div>
+<div *ngIf="action === 'delete'" class="action-dropdown-item" style="color: var(--bs-danger);" (click)="openModal(fileActionsModal)">
+  <ng-icon class="me-2"
+           name="ionTrashOutline" title="Delete" i18n-title></ng-icon>
+  <span *ngIf="showText" i18n>Delete</span>
+</div>
+
+<ng-template #fileActionsModal>
+  <div class="modal-header">
+    <h5 class="modal-title" *ngIf="action === 'move'" i18n>Move Files</h5>
+    <h5 class="modal-title" *ngIf="action === 'delete'" i18n>Delete Files</h5>
+    <button type="button" class="btn-close" (click)="hideModal()" aria-label="Close"></button>
+  </div>
+  <div class="modal-body">
+    <div *ngIf="action === 'move'" class="row">
+      <div style="flex: 0 0 auto; width:20%;">
+        <label for="destinationPath" style="vertical-align: middle;">Destination:</label>
+      </div>
+      <div class="flex-container" style="flex: 1 1 auto; width:80%;">
+        <input type="text"
+               id="destinationPath"
+               class="form-control flex-grow-1"
+               (change)="setDestinationPath($event)"
+               [ngModel]="destinationPath"
+               placeholder="path\to\move\to">
+        <span style="vertical-align: middle; padding-left: 4px; padding-right: 4px;">\</span>
+        <input type="text"
+               id="destinationFileName"
+               class="form-control flex-grow-1"
+               (change)="setDestinationFileName($event)"
+               [disabled]="sourcePaths.length > 1"
+               [ngModel]="destinationFileName"
+               [placeholder]="getPlaceholderFileName()">
+        <ng-icon *ngIf="invalidPathError" name="ionCloseCircleOutline" class="text-danger ms-2"></ng-icon>
+      </div>
+    </div>
+    <p *ngIf="action === 'delete'" i18n>Are you sure you want to delete the selected files?</p>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="hideModal()" i18n>Cancel</button>
+    <button type="button" class="btn btn-primary" (click)="performAction()" i18n>Confirm</button>
+  </div>
+</ng-template>

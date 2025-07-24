@@ -1,0 +1,23 @@
+.flex-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.flex-container input {
+  flex: 1 1 50%; /* Grow to take available space, default to 50% if constrained */
+  min-width: 0; /* Prevent overflow issues */
+}
+
+.modal-header, .modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.action-dropdown-item {
+  display: inherit;
+  padding: var(--bs-dropdown-item-padding-y) var(--bs-dropdown-item-padding-x);
+}

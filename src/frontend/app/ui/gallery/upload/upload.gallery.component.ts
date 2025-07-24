@@ -8,6 +8,7 @@ import { Subscription } from 'rxjs';
 import { ContentWrapper } from '../../../../../common/entities/ConentWrapper';
 import { AuthenticationService } from '../../../model/network/authentication.service';
 import { ErrorCodes } from '../../../../../common/entities/Error';
+import { GalleryCacheService } from '../cache.gallery.service';
 
 enum UploadStatus {
   STANDBY = 0,
@@ -25,13 +26,13 @@ export class GalleryUploadComponent implements OnInit {
   @Input() dropDownItem = false;
   modalRef: BsModalRef;
   isDragOver = false;
-  
+
   status: UploadStatus = UploadStatus.STANDBY;
 
   files: { [key: string]: File } = {};
   successfulFiles: string[] = [];
   failedFiles: string[] = [];
-  
+
   autoOrganize = true;
 
   currentDir = '';
@@ -43,12 +44,12 @@ export class GalleryUploadComponent implements OnInit {
     private uploadService: UploadService,
     private notification: NotificationService,
     private modalService: BsModalService,
-    private galleryService: ContentLoaderService,
+    private contentLoaderService: ContentLoaderService,
     private authService: AuthenticationService,
   ) {}
 
   ngOnInit(): void {
-      this.contentSubscription = this.galleryService.content.subscribe(
+      this.contentSubscription = this.contentLoaderService.content.subscribe(
           async (content: ContentWrapper) => {
             if (content && content.directory && content.directory.path && content.directory.name) {
               this.currentDir = Utils.concatUrls(
@@ -64,7 +65,7 @@ export class GalleryUploadComponent implements OnInit {
           }
       );
     }
-  
+
     ngOnDestroy(): void {
       if (this.contentSubscription !== null) {
         this.contentSubscription.unsubscribe();
@@ -113,6 +114,10 @@ export class GalleryUploadComponent implements OnInit {
     delete this.files[fileName];
   }
 
+  private plural(): string {
+    return Object.keys(this.files).length > 1 ? 's' : '';
+  }
+
   async uploadFiles(): Promise<void> {
     if (Object.keys(this.files).length === 0) {
       this.notification.error('No files selected for upload.');
@@ -140,16 +145,16 @@ export class GalleryUploadComponent implements OnInit {
       }
     }
     if (this.successfulFiles.length === 0 && this.failedFiles.length > 0) {
-      this.notification.error('Failed to upload files.');
+      this.notification.error(`Failed to upload file${this.plural()}`);
       this.status = UploadStatus.STANDBY;
       return;
     }
 
-    this.notification.success('Successfully uploaded '+ this.successfulFiles.length + ' files.');
+    this.notification.success(`Successfully uploaded ${this.successfulFiles.length} file${this.plural()}`);
     if (this.autoOrganize) {
       try {
         await this.uploadService.organizeUploadedFiles(this.uploadDir);
-        this.notification.success('Files organized successfully.');
+        this.notification.success(`File${this.plural()} organized successfully.`);
       }
       catch (error) {
         if (error.code == ErrorCodes.INVALID_PATH_ERROR) {
@@ -159,13 +164,14 @@ export class GalleryUploadComponent implements OnInit {
           return;
         }
         else {
-          this.notification.error('Failed to organize files.');
+          this.notification.error(`Failed to organize file${this.plural()}`);
         }
       }
     }
     this.invalidPathError = false;
     if (this.successfulFiles.length == Object.keys(this.files).length) {
       this.status = UploadStatus.FINISHED;
+      this.refreshParentDirectory();
     }
   }
 
@@ -191,6 +197,11 @@ export class GalleryUploadComponent implements OnInit {
     this.autoOrganize = true;
     this.uploadDir = this.authService.user.value.name;
     this.invalidPathError = false;
+  }
+
+  private async refreshParentDirectory(): Promise<void> {
+    GalleryCacheService.deleteCache();
+    await this.contentLoaderService.loadDirectory(this.currentDir);
   }
 
   triggerFileInput(): void {

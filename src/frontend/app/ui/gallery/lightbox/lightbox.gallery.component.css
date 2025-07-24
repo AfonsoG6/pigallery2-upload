@@ -1,6 +1,6 @@
 .lightbox {
   position: fixed; /* Stay in place */
-  z-index: 1100; /* Sit on top */
+  z-index: 1045; /* Sit on top */
   left: 0;
   top: 0;
   width: 100%; /* Full width */
@@ -15,7 +15,7 @@ app-gallery-lightbox-photo {
 
 .blackCanvas {
   position: fixed; /* Stay in place */
-  z-index: 1099; /* Sit on top */
+  z-index: 1044; /* Sit on top */
   left: 0;
   top: 0;
   width: 100%; /* Full width */
@@ -29,7 +29,7 @@ app-gallery-lightbox-photo {
 }
 
 app-info-panel {
-  z-index: 1100; /* Sit on top */
+  z-index: 1045; /* Sit on top */
   position: fixed;
   height: 100vh;
   max-width: 100vw;

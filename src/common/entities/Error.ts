@@ -52,6 +52,13 @@ export class ErrorDTO {
     }
   }
 
+  public setRequest(req: Request): void {
+    this.request = {
+      method: req.method,
+      url: req.url,
+    };
+  }
+
   toString(): string {
     return '[' + ErrorCodes[this.code] + '] ' + this.message + this.detailsStr;
   }

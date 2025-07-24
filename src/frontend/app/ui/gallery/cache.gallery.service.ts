@@ -73,7 +73,7 @@ export class GalleryCacheService {
     return null;
   }
 
-  private static deleteCache(): void {
+  public static deleteCache(): void {
     try {
       const toRemove = [];
       for (let i = 0; i < localStorage.length; i++) {

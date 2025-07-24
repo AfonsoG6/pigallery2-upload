@@ -198,6 +198,8 @@ import {StringifyGridSize} from './pipes/StringifyGridSize';
 import {GalleryNavigatorService} from './ui/gallery/navigator/navigator.service';
 import {GridSizeIconComponent} from './ui/utils/grid-size-icon/grid-size-icon.component';
 import {SortingMethodIconComponent} from './ui/utils/sorting-method-icon/sorting-method-icon.component';
+import {GalleryFileActionsComponent} from './ui/gallery/file-actions/file-actions.component';
+import {GalleryFileActionsService} from './ui/gallery/file-actions/file-actions.service';
 
 @Injectable()
 export class MyHammerConfig extends HammerGestureConfig {
@@ -310,6 +312,7 @@ Marker.prototype.options.icon = MarkerFactory.defIcon;
     GallerySearchQueryBuilderComponent,
     GalleryShareComponent,
     GalleryUploadComponent,
+    GalleryFileActionsComponent,
     GalleryNavigatorComponent,
     GalleryFilterComponent,
     GalleryPhotoComponent,
@@ -362,6 +365,7 @@ Marker.prototype.options.icon = MarkerFactory.defIcon;
     NetworkService,
     ShareService,
     UploadService,
+    GalleryFileActionsService,
     UserService,
     AlbumsService,
     GalleryCacheService,

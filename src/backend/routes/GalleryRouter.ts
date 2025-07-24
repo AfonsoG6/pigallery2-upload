@@ -26,6 +26,8 @@ export class GalleryRouter {
     this.addRandom(app);
     this.addDirectoryList(app);
     this.addDirectoryZip(app);
+    this.addMove(app);
+    this.addDelete(app);
     this.addUpload(app);
     this.addUploadOrganize(app);
 
@@ -254,7 +256,39 @@ export class GalleryRouter {
         RenderingMWs.renderFile
     );
   }
-  
+
+  protected static addMove(app: Express): void {
+    app.post(
+        Config.Server.apiPath + '/gallery/move',
+        // common part
+        AuthenticationMWs.authenticate,
+        AuthenticationMWs.authorise(UserRoles.User),
+        VersionMWs.injectGalleryVersion,
+
+        // specific part
+        raw({type: 'multipart/form-data', limit: '5mb'}),
+        GalleryMWs.moveFiles,
+        ServerTimingMWs.addServerTiming,
+        RenderingMWs.renderResult
+    );
+  }
+
+  protected static addDelete(app: Express): void {
+    app.post(
+        Config.Server.apiPath + '/gallery/delete',
+        // common part
+        AuthenticationMWs.authenticate,
+        AuthenticationMWs.authorise(UserRoles.User),
+        VersionMWs.injectGalleryVersion,
+
+        // specific part
+        raw({type: 'multipart/form-data', limit: '5mb'}),
+        GalleryMWs.deleteFiles,
+        ServerTimingMWs.addServerTiming,
+        RenderingMWs.renderResult
+    );
+  }
+
   protected static addUpload(app: Express): void {
     app.post(
         Config.Server.apiPath + '/gallery/upload',
