@@ -21,6 +21,7 @@ export class GalleryFileActionsComponent {
   @Input() sourcePaths: string[] = [];
   destinationPath = '';
   destinationFileName = '';
+  force = false;
 
   invalidPathError = false;
 
@@ -36,6 +37,7 @@ export class GalleryFileActionsComponent {
     this.sourcePaths = [];
     this.destinationPath = '';
     this.destinationFileName = '';
+    this.force = false;
     this.invalidPathError = false;
   }
 
@@ -72,16 +74,6 @@ export class GalleryFileActionsComponent {
     }
   }
 
-  setDestinationPath(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.destinationPath = input.value.trim();
-  }
-
-  setDestinationFileName(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.destinationFileName = input.value.trim();
-  }
-
   private plural(): string {
     return this.sourcePaths.length > 1 ? 's' : '';
   }
@@ -89,7 +81,7 @@ export class GalleryFileActionsComponent {
   async performAction(): Promise<void> {
     if (this.action === 'move') {
       try {
-        await this.fileActionsService.moveFiles(this.sourcePaths, this.destinationPath, this.destinationFileName);
+        await this.fileActionsService.moveFiles(this.sourcePaths, this.destinationPath, this.destinationFileName, this.force);
       } catch (error) {
         if (error.code == ErrorCodes.INVALID_PATH_ERROR) {
           this.notification.error('Invalid destination path: ' + this.destinationPath);
@@ -120,5 +112,19 @@ export class GalleryFileActionsComponent {
     GalleryCacheService.deleteCache();
     await this.router.navigate(['/gallery', parentPath]);
     await this.contentLoaderService.loadDirectory(parentPath);
+  }
+
+  onChangeDestinationPath(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.destinationPath = input.value.trim();
+  }
+
+  onChangeDestinationFileName(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.destinationFileName = input.value.trim();
+  }
+
+  onChangeForce(event: Event): void {
+    this.force = (event.target as HTMLInputElement).checked;
   }
 }

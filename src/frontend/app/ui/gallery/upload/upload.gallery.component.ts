@@ -34,6 +34,7 @@ export class GalleryUploadComponent implements OnInit {
   failedFiles: string[] = [];
 
   autoOrganize = true;
+  force = false;
 
   currentDir = '';
   uploadDir = this.authService.user.value.name;
@@ -129,7 +130,7 @@ export class GalleryUploadComponent implements OnInit {
       if (this.successfulFiles.includes(fileName)) continue;
 
       try {
-        await this.uploadService.uploadFile(this.files[fileName], this.autoOrganize, this.uploadDir);
+        await this.uploadService.uploadFile(this.files[fileName], this.uploadDir, this.autoOrganize, this.force);
         this.successfulFiles.push(fileName);
         if (this.failedFiles.includes(fileName)) {
           this.failedFiles = this.failedFiles.filter(f => f !== fileName);
@@ -195,6 +196,7 @@ export class GalleryUploadComponent implements OnInit {
     this.successfulFiles = [];
     this.failedFiles = [];
     this.autoOrganize = true;
+    this.force = false;
     this.uploadDir = this.authService.user.value.name;
     this.invalidPathError = false;
   }
@@ -220,6 +222,10 @@ export class GalleryUploadComponent implements OnInit {
     else {
       this.uploadDir = this.currentDir;
     }
+  }
+
+  onChangeForce(event: Event): void {
+    this.force = (event.target as HTMLInputElement).checked;
   }
 
   setUploadDir(event: Event): void {

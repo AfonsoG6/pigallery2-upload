@@ -399,6 +399,7 @@ export class GalleryMWs {
       const sourcePaths: string[] = GalleryMWs.getParameterFromParts(parts, 'sourcePath');
       const destinationPath: string = GalleryMWs.getParameterFromParts(parts, 'destinationPath', false)[0];
       let destinationFileName: string = GalleryMWs.getParameterFromParts(parts, 'destinationFileName', false, /[^/\\:*?"<>|]+/)[0];
+      const force: boolean = GalleryMWs.getParameterFromParts(parts, 'force', true, /true|false/)[0] === 'true';
 
       if (sourcePaths.length > 1 && destinationFileName) {
         throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Cannot specify destination file name when moving multiple files', req);
@@ -435,6 +436,17 @@ export class GalleryMWs {
         const fullSourcePath = path.join(ProjectPath.ImageFolder, sourcePath);
         const fullDestinationPath = path.join(ProjectPath.ImageFolder, iterDestinationPath);
 
+        if (force === false) {
+          // Check if destination file already exists
+          try {
+            await fsp.access(fullDestinationPath);
+            throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'File already exists at destination: ' + iterDestinationPath, req);
+          }
+          catch (e) { /* File does not exist, proceed with move */ }
+        }
+
+        try { await fsp.mkdir(path.dirname(fullDestinationPath), { recursive: true }); }
+        catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error creating destination directory: ' + e.toString(), req); }
         try { await fsp.rename(fullSourcePath, fullDestinationPath); }
         catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error moving file: ' + e.toString(), req); }
         try { await fsp.chmod(fullDestinationPath, 0o666); }
@@ -488,8 +500,9 @@ export class GalleryMWs {
     try {
       const parts = GalleryMWs.parsePartsFromMultipartForm(req);
       const autoOrganize: boolean = GalleryMWs.getParameterFromParts(parts, "autoOrganize", true, /true|false/)[0] === "true";
+      const force: boolean = GalleryMWs.getParameterFromParts(parts, "force", true, /true|false/)[0] === "true";
       let uploadPath: string = GalleryMWs.getParameterFromParts(parts, 'uploadPath')[0];
-
+      const lastModified: string = GalleryMWs.getParameterFromParts(parts, 'lastModified', true, /\d+/)[0];
       const files = parts.filter(
         (p): boolean => (
           p.name === "file" &&
@@ -519,10 +532,21 @@ export class GalleryMWs {
 
       for (const file of files) {
         const filePath = path.join(uploadPath, file.filename);
+        if (force === false) {
+          // Check if file already exists
+          try {
+            await fsp.access(filePath);
+            const relativePath = path.relative(ProjectPath.ImageFolder, filePath);
+            throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'File already exists: ' + relativePath, req);
+          }
+          catch (e) { /* File does not exist, proceed with write */ }
+        }
         try { await fsp.writeFile(filePath, file.data); }
         catch (e) {throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error writing file to disk: ' + e.toString(), req); }
         try { await fsp.chmod(filePath, 0o666); }
         catch (e) {throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file permissions: ' + e.toString(), req); }
+        try { await fsp.utimes(filePath, lastModified, lastModified); }
+        catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file last modified time: ' + e.toString(), req); }
       }
     }
     catch (e) {

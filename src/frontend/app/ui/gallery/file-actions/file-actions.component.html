@@ -24,21 +24,39 @@
         <input type="text"
                id="destinationPath"
                class="form-control flex-grow-1"
-               (change)="setDestinationPath($event)"
+               (change)="onChangeDestinationPath($event)"
                [ngModel]="destinationPath"
                placeholder="path\to\move\to">
         <span style="vertical-align: middle; padding-left: 4px; padding-right: 4px;">\</span>
         <input type="text"
                id="destinationFileName"
                class="form-control flex-grow-1"
-               (change)="setDestinationFileName($event)"
+               (change)="onChangeDestinationFileName($event)"
                [disabled]="sourcePaths.length > 1"
                [ngModel]="destinationFileName"
                [placeholder]="getPlaceholderFileName()">
         <ng-icon *ngIf="invalidPathError" name="ionCloseCircleOutline" class="text-danger ms-2"></ng-icon>
       </div>
     </div>
-    <p *ngIf="action === 'delete'" i18n>Are you sure you want to delete the selected files?</p>
+    <div *ngIf="action === 'move'" class="row">
+      <div class="col-4">
+        <label class="control-label" for="force" style="vertical-align: middle;" i18n>Force override:</label>
+      </div>
+      <div class="col-8">
+        <div class="form-check form-switch">
+          <input class="form-check-input"
+                 type="checkbox"
+                 role="switch"
+                 id="force"
+                 (change)="onChangeForce($event)"
+                 [checked]="force"
+                 [disabled]="status !== 0">
+        </div>
+      </div>
+    </div>
+    <div *ngIf="action === 'delete'" class="row" i18n>
+      Are you sure you want to delete the selected files?
+    </div>
   </div>
   <div class="modal-footer">
     <button type="button" class="btn btn-secondary" (click)="hideModal()" i18n>Cancel</button>

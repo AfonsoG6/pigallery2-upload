@@ -5,7 +5,7 @@ import { NetworkService } from '../../../model/network/network.service';
 export class GalleryFileActionsService {
   constructor(private networkService: NetworkService) {}
 
-  public async moveFiles(sourcePaths: string[], destinationPath: string, destinationFileName?: string): Promise<void> {
+  public async moveFiles(sourcePaths: string[], destinationPath: string, destinationFileName?: string, force: boolean): Promise<void> {
     const formData = new FormData();
     for (const sourcePath of sourcePaths) {
       formData.append('sourcePath', sourcePath);
@@ -14,6 +14,7 @@ export class GalleryFileActionsService {
     if (destinationFileName) {
       formData.append('destinationFileName', destinationFileName);
     }
+    formData.append('force', String(force));
 
     try {
       return await this.networkService.postMultipartFormData('/gallery/move/', formData);
