@@ -25,10 +25,14 @@ export class GalleryFileActionsService {
     if (index > -1) {
       this.selectedPaths.splice(index, 1);
     }
+    this.successfulPaths.delete(path);
+    this.failedPaths.delete(path);
   }
 
   public clearSelectedPaths(): void {
     this.selectedPaths = [];
+    this.successfulPaths.clear();
+    this.failedPaths.clear();
   }
 
   public getSelectedPaths(): string[] {

@@ -99,7 +99,7 @@ export class GalleryFileActionsComponent {
     return this.fileActionsService.numberOfSelectedPaths();
   }
 
-  private handleResult(resultDTO: FileActionResultDTO): void {
+  private async handleResult(resultDTO: FileActionResultDTO): Promise<void> {
     if (resultDTO.failedPaths.length === 0) {
       this.state = State.FINISHED;
       if (this.action === 'move')
@@ -127,6 +127,12 @@ export class GalleryFileActionsComponent {
       this.state = State.STANDBY;
     }
     this.fileActionsService.updateFailedAndSuccessfulPaths(resultDTO.failedPaths.map(failedPath => failedPath.path));
+    if (this.state === State.FINISHED) {
+      this.hideModal();
+      this.fileActionsService.clearSelectedPaths();
+      this.resetForm();
+      await this.redirectToParentDirectory();
+    }
   }
 
   private notifyError(errorDTO: ErrorDTO): void {
@@ -147,31 +153,24 @@ export class GalleryFileActionsComponent {
       try {
         this.state = State.PERFORMING;
         const resultDTO = await this.fileActionsService.moveFiles(this.destinationPath, this.destinationFileName, this.force);
-        this.handleResult(resultDTO);
+        await this.handleResult(resultDTO);
       } catch (error) {
         this.notifyError(error as ErrorDTO);
         this.state = State.STANDBY;
-        return;
       }
     }
     else if (this.action === 'delete') {
       try {
         const resultDTO = await this.fileActionsService.deleteFiles();
-        this.handleResult(resultDTO);
+        await this.handleResult(resultDTO);
       } catch (error) {
         this.notifyError(error as ErrorDTO);
         this.state = State.STANDBY;
-        return;
       }
     }
     else {
       this.fileActionsService.clearSelectedPaths();
-      return;
     }
-    this.hideModal();
-    this.fileActionsService.clearSelectedPaths();
-    this.resetForm();
-    await this.redirectToParentDirectory();
   }
 
   private async redirectToParentDirectory(): Promise<void> {

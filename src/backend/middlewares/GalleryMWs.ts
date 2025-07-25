@@ -348,15 +348,15 @@ export class GalleryMWs {
 
   private static parsePartsFromMultipartForm(req: Request): any[] {
     if (!req.headers['content-type']) {
-      throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No content type header found', req);
+      throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No content type header found');
     }
 
     if (req.headers['content-type'].indexOf('multipart/form-data') === -1) {
-      throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Content type header is not multipart/form-data', req);
+      throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Content type header is not multipart/form-data');
     }
     const boundary = multipart.getBoundary(req.headers['content-type']);
     if (!boundary) {
-      throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No boundary found in content type header', req);
+      throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No boundary found in content type header');
     }
 
     return multipart.parse(req.body, boundary);
@@ -404,20 +404,20 @@ export class GalleryMWs {
       const force: boolean = GalleryMWs.getParameterFromParts(parts, 'force', true, /true|false/)[0] === 'true';
 
       if (sourcePaths.length > 1 && destinationFileName) {
-        throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Cannot specify destination file name when moving multiple files', req);
+        throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Cannot specify destination file name when moving multiple files');
       }
 
       for (const sourcePath of sourcePaths) {
         try {
 
           if (UserDTOUtils.isDirectoryPathAvailable(sourcePath, req.session['user'].permissions) === false) {
-            throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Source path is not available for user', req);
+            throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Source path is not available for user');
           }
 
           const fullSourcePath = path.join(ProjectPath.ImageFolder, sourcePath);
           let isDirectory = false;
           try { isDirectory = await fsp.stat(fullSourcePath).then(stat => stat.isDirectory()) }
-          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error checking source path: ' + e.toString(), req); }
+          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error checking source path: ' + e.toString()); }
           const isFile = !isDirectory;
 
           let fileDestinationPath = destinationPath;
@@ -430,40 +430,39 @@ export class GalleryMWs {
             }
           }
           if (isDirectory && destinationFileName) {
-            throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Cannot specify destination file name when moving a directory', req);
+            throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Cannot specify destination file name when moving a directory');
           }
 
           if (UserDTOUtils.isDirectoryPathAvailable(fileDestinationPath, req.session['user'].permissions) === false) {
-            throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Destination path is not available for user', req);
+            throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Destination path is not available for user');
           }
 
           const fullDestinationPath = path.join(ProjectPath.ImageFolder, fileDestinationPath);
 
           if (force === false) {
             await fsp.access(fullDestinationPath).then(
-              () => { throw new ErrorDTO(ErrorCodes.FILE_EXISTS_ERROR, 'File already exists at destination: ' + fileDestinationPath, req); },
+              () => { throw new ErrorDTO(ErrorCodes.FILE_EXISTS_ERROR, 'File already exists at destination: ' + fileDestinationPath); },
               () => { /* File does not exist, proceed with write */ }
             );
           }
 
           try { await fsp.mkdir(path.dirname(fullDestinationPath), { recursive: true }); }
-          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error creating destination directory: ' + e.toString(), req); }
+          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error creating destination directory: ' + e.toString()); }
           try { await fsp.rename(fullSourcePath, fullDestinationPath); }
-          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error moving file: ' + e.toString(), req); }
+          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error moving file: ' + e.toString()); }
           try { await fsp.chmod(fullDestinationPath, 0o666); }
-          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file permissions: ' + e.toString(), req); }
+          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file permissions: ' + e.toString()); }
         }
         catch (e) {
           if (e instanceof ErrorDTO) {
             result.addFailedPath(sourcePath, e);
           } else {
-            result.addFailedPath(sourcePath, new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Unknown error during moving', req));
+            result.addFailedPath(sourcePath, new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Unknown error during moving'));
           }
         }
       }
     }
     catch (e) {
-      (e as ErrorDTO).setRequest(req);
       return next(e);
     }
     req.resultPipe = result;
@@ -483,24 +482,23 @@ export class GalleryMWs {
       for (const targetPath of targetPaths) {
         try {
           if (UserDTOUtils.isDirectoryPathAvailable(targetPath, req.session['user'].permissions) === false) {
-            throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'File path is not available for user', req);
+            throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'File path is not available for user');
           }
 
           const fullTargetPath = path.join(ProjectPath.ImageFolder, targetPath);
           try { await fsp.unlink(fullTargetPath); }
-          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error deleting file: ' + e.toString(), req); }
+          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error deleting file: ' + e.toString()); }
         }
         catch (e) {
           if (e instanceof ErrorDTO) {
             result.addFailedPath(targetPath, e);
           } else {
-            result.addFailedPath(targetPath, new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Unknown error during deletion', req));
+            result.addFailedPath(targetPath, new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Unknown error during deletion'));
           }
         }
       }
     }
     catch (e) {
-      (e as ErrorDTO).setRequest(req);
       return next(e);
     }
     req.resultPipe = result;
@@ -534,11 +532,11 @@ export class GalleryMWs {
         )
       );
       if (files.length === 0) {
-        throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No valid files found in upload request', req);
+        throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No valid files found in upload request');
       }
 
       if (UserDTOUtils.isDirectoryPathAvailable(uploadPath, req.session['user'].permissions) === false) {
-        throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Upload path is not available for user', req);
+        throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Upload path is not available for user');
       }
 
       uploadPath = path.join(
@@ -547,27 +545,26 @@ export class GalleryMWs {
       );
 
       try { await fsp.mkdir(uploadPath, {recursive: true}); }
-      catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error creating target directory for upload: ' + e.toString(), req);}
+      catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error creating target directory for upload: ' + e.toString());}
 
       for (const file of files) {
         const filePath = path.join(uploadPath, file.filename);
         if (force === false) {
           const relativePath = path.relative(ProjectPath.ImageFolder, filePath);
           await fsp.access(filePath).then(
-            () => { throw new ErrorDTO(ErrorCodes.FILE_EXISTS_ERROR, 'File already exists: ' + relativePath, req); },
+            () => { throw new ErrorDTO(ErrorCodes.FILE_EXISTS_ERROR, 'File already exists: ' + relativePath); },
             () => { /* File does not exist, proceed with write */ }
           );
         }
         try { await fsp.writeFile(filePath, file.data); }
-        catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error writing file to disk: ' + e.toString(), req); }
+        catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error writing file to disk: ' + e.toString()); }
         try { await fsp.chmod(filePath, 0o666); }
-        catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file permissions: ' + e.toString(), req); }
+        catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file permissions: ' + e.toString()); }
         try { await fsp.utimes(filePath, new Date(lastModified), new Date(lastModified)); }
-        catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file last modified time: ' + e.toString(), req); }
+        catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file last modified time: ' + e.toString()); }
       }
     }
     catch (e) {
-      (e as ErrorDTO).setRequest(req);
       return next(e);
     }
     req.resultPipe = "ok";
@@ -584,11 +581,11 @@ export class GalleryMWs {
     }
 
     if (!req.params || !req.params['uploadPath']) {
-      return next(new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Missing parameter: uploadPath', req));
+      return next(new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Missing parameter: uploadPath'));
     }
     const uploadPath = req.params['uploadPath'] as string;
     if (UserDTOUtils.isDirectoryPathAvailable(uploadPath, req.session['user'].permissions) === false) {
-      return next(new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Upload path is not available for user', req));
+      return next(new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Upload path is not available for user'));
     }
 
     const sourcePath = path.join(
@@ -602,13 +599,13 @@ export class GalleryMWs {
 
     const pythonScriptPath = Config.Upload.imageOrganizerScriptPath;
     if (!pythonScriptPath || pythonScriptPath === "") {
-      return next(new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Image organizer script path is not configured', req));
+      return next(new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Image organizer script path is not configured'));
     }
 
     try {
       await fsp.access(pythonScriptPath);
     } catch (e) {
-      return next(new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Image organizer script cannot be accessed: ' + pythonScriptPath, req));
+      return next(new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Image organizer script cannot be accessed: ' + pythonScriptPath));
     }
 
     const pythonArgs = [
@@ -617,7 +614,7 @@ export class GalleryMWs {
     ];
 
     try { spawnSync('python', [pythonScriptPath, ...pythonArgs]); }
-    catch (e) { return next(new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error running image organizer script: ' + e.toString(), req)); }
+    catch (e) { return next(new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error running image organizer script: ' + e.toString())); }
 
     req.resultPipe = "ok";
     return next();
