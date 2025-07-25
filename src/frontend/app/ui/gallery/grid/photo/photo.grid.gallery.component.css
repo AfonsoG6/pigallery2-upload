@@ -1,10 +1,11 @@
 :host {
+  --zoomed-scale: 98%;
   position: relative;
   overflow: hidden;
   transition: scale .3s ease-out;
 }
 :host:hover {
-  scale: 98%;
+  scale: var(--zoomed-scale) !important;
 }
 
 img {
@@ -66,6 +67,12 @@ img.loading{
   animation: show-info .3s forwards;
 }
 
+/*
+.photo-container:hover .selector {
+  animation: fadein .3s;
+}
+*/
+
 @keyframes show-info {
   0% {
     transform: translateY(0);
@@ -79,7 +86,6 @@ img.loading{
 }
 
 @keyframes hide-info {
-
   0% {
     transform: translateY(-100%);
     background: rgba(0, 0, 0, 0.8);
@@ -88,6 +94,24 @@ img.loading{
     transform: translateY(0);
     background-color: transparent;
   }
+}
+
+.selector {
+  /*animation: fadeout .3s forwards;*/
+  background-color: transparent;
+  color: white;
+  position: absolute;
+  margin: 5px;
+  padding: 0;
+  height: 30px;
+  width: 30px;
+  border-radius: 50%;
+  border: transparent;
+  /*transition: all .3s ease-out;
+  -moz-transition: all .3s ease-out;
+  -webkit-transition: all .3s ease-out;
+  -o-transition: all .3s ease-out;
+  -ms-transition: all .3s ease-out;*/
 }
 
 .info {

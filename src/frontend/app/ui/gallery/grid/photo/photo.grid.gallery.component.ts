@@ -1,4 +1,4 @@
-import {Component, ElementRef, Input, OnDestroy, OnInit, ViewChild,} from '@angular/core';
+import {Component, ElementRef, HostBinding, Input, OnDestroy, OnInit, ViewChild,} from '@angular/core';
 import {Dimension, IRenderable} from '../../../../model/IRenderable';
 import {GridMedia} from '../GridMedia';
 import {RouterLink} from '@angular/router';
@@ -8,6 +8,7 @@ import {PageHelper} from '../../../../model/page.helper';
 import {PhotoDTO, PhotoMetadata,} from '../../../../../../common/entities/PhotoDTO';
 import {SearchQueryTypes, TextSearch, TextSearchQueryMatchTypes,} from '../../../../../../common/entities/SearchQueryDTO';
 import {AuthenticationService} from '../../../../model/network/authentication.service';
+import { GalleryFileActionsService } from '../../file-actions/file-actions.service';
 
 @Component({
   selector: 'app-gallery-grid-photo',
@@ -23,7 +24,11 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, OnDestroy {
   thumbnail: Thumbnail;
   keywords: { value: string; type: SearchQueryTypes }[] = null;
   infoBarVisible = false;
-  animationTimer: number = null;
+  infoAnimationTimer: number = null;
+
+  selectorVisible = false;
+  selectorVisibleTimer: number = null;
+  overSelector = false;
 
   readonly SearchQueryTypes: typeof SearchQueryTypes = SearchQueryTypes;
   searchEnabled = true;
@@ -33,7 +38,8 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, OnDestroy {
 
   constructor(
       private thumbnailService: ThumbnailManagerService,
-      private authService: AuthenticationService
+      private authService: AuthenticationService,
+      private fileActionsService: GalleryFileActionsService
   ) {
     this.searchEnabled = this.authService.canSearch();
   }
@@ -56,6 +62,11 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, OnDestroy {
       return (this.gridMedia.media as PhotoDTO).metadata.caption;
     }
     return this.gridMedia.media.name;
+  }
+
+  @HostBinding('style.scale')
+  get hostScale(): string {
+    return this.selected() ? 'var(--zoomed-scale)' : '100%';
   }
 
   ngOnInit(): void {
@@ -91,8 +102,11 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.thumbnail.destroy();
 
-    if (this.animationTimer != null) {
-      clearTimeout(this.animationTimer);
+    if (this.infoAnimationTimer != null) {
+      clearTimeout(this.infoAnimationTimer);
+    }
+    if (this.selectorVisibleTimer != null) {
+      clearTimeout(this.selectorVisibleTimer);
     }
   }
 
@@ -145,21 +159,34 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, OnDestroy {
   }
 
   mouseOver(): void {
-    this.infoBarVisible = true;
-    if (this.animationTimer != null) {
-      clearTimeout(this.animationTimer);
-      this.animationTimer = null;
+    if (this.infoAnimationTimer != null) {
+      clearTimeout(this.infoAnimationTimer);
+      this.infoAnimationTimer = null;
     }
+    this.infoBarVisible = true;
+    if (this.selectorVisibleTimer != null) {
+      clearTimeout(this.selectorVisibleTimer);
+      this.selectorVisibleTimer = null;
+    }
+    this.selectorVisible = true;
   }
 
   mouseOut(): void {
-    if (this.animationTimer != null) {
-      clearTimeout(this.animationTimer);
+    if (this.overSelector) return;
+    if (this.infoAnimationTimer != null) {
+      clearTimeout(this.infoAnimationTimer);
     }
-    this.animationTimer = window.setTimeout((): void => {
-      this.animationTimer = null;
+    this.infoAnimationTimer = window.setTimeout((): void => {
+      this.infoAnimationTimer = null;
       this.infoBarVisible = false;
     }, 500);
+    if (this.selectorVisibleTimer != null) {
+      clearTimeout(this.selectorVisibleTimer);
+    }
+    this.selectorVisibleTimer = window.setTimeout((): void => {
+      this.selectorVisibleTimer = null;
+      this.selectorVisible = false;
+    }, 100);
   }
 
   public getDimension(): Dimension {
@@ -177,5 +204,31 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, OnDestroy {
       width: this.imageRef.nativeElement.width,
       height: this.imageRef.nativeElement.height,
     };
+  }
+
+  mouseOverSelector(): void {
+    if (this.infoAnimationTimer != null) {
+      clearTimeout(this.infoAnimationTimer);
+      this.infoAnimationTimer = null;
+    }
+    if (this.selectorVisibleTimer != null) {
+      clearTimeout(this.selectorVisibleTimer);
+      this.selectorVisibleTimer = null;
+    }
+    this.selectorVisible = true;
+    this.overSelector = true;
+  }
+
+  mouseOutSelector(): void {
+    this.overSelector = false;
+  }
+
+  selected(): boolean {
+    return this.fileActionsService.pathIsSelected(this.gridMedia.getReadableRelativePath());
+  }
+
+  toggleSelected(event: MouseEvent): void {
+    event.stopPropagation();
+    this.fileActionsService.toggleSelectedPath(this.gridMedia.getReadableRelativePath());
   }
 }

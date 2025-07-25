@@ -1,5 +1,18 @@
 <div #photoContainer class="photo-container rounded" (mouseover)="mouseOver()" (mouseout)="mouseOut()">
 
+  <button class="selector" *ngIf="selectorVisible || selected()"
+          (click)="toggleSelected($event)"
+          [attr.aria-pressed]="selected()"
+          type="button">
+    <ng-icon
+      name="ionCheckmarkCircle"
+      [style.color]="selected() ? 'var(--bs-primary-text-emphasis)' : 'var(--bs-white)'"
+      [style.opacity]="(selected() || overSelector) ? 1 : 0.7"
+      (mouseover)="mouseOverSelector()"
+      (mouseout)="mouseOutSelector()"
+      style="--ng-icon__size: 100%;"
+    ></ng-icon>
+  </button>
 
   <img alt="{{gridMedia.media.name}}" #img [src]="thumbnail.Src"
        (load)="loaded=true"

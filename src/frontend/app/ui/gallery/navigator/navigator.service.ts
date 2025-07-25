@@ -7,7 +7,7 @@ import {GridSizes} from '../../../../../common/entities/GridSizes';
 
 @Injectable()
 export class GalleryNavigatorService {
-  public girdSize: BehaviorSubject<GridSizes>;
+  public gridSize: BehaviorSubject<GridSizes>;
 
   constructor(
       private galleryCacheService: GalleryCacheService,
@@ -15,15 +15,15 @@ export class GalleryNavigatorService {
   ) {
 
     // TODO load def instead
-    this.girdSize = new BehaviorSubject(this.getDefaultGridSize());
+    this.gridSize = new BehaviorSubject(this.getDefaultGridSize());
     this.galleryService.content.subscribe((c) => {
       if (c) {
         if (c) {
           const gs = this.galleryCacheService.getGridSize(c);
           if (gs !== null) {
-            this.girdSize.next(gs);
+            this.gridSize.next(gs);
           } else {
-            this.girdSize.next(this.getDefaultGridSize());
+            this.gridSize.next(this.getDefaultGridSize());
           }
         }
       }
@@ -32,7 +32,7 @@ export class GalleryNavigatorService {
 
 
   setGridSize(gs: GridSizes) {
-    this.girdSize.next(gs);
+    this.gridSize.next(gs);
     if (this.galleryService.content.value) {
       if (
           !this.isDefaultGridSize()
@@ -50,7 +50,7 @@ export class GalleryNavigatorService {
   }
 
   isDefaultGridSize(): boolean {
-    return this.girdSize.value === this.getDefaultGridSize();
+    return this.gridSize.value === this.getDefaultGridSize();
   }
 
 

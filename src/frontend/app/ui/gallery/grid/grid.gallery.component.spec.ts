@@ -27,7 +27,7 @@ class MockGallerySortingService {
 }
 
 class MockGalleryNavigatorService {
-  girdSize = new BehaviorSubject(GridSizes.medium);
+  gridSize = new BehaviorSubject(GridSizes.medium);
 }
 
 describe('GalleryGridComponent', () => {

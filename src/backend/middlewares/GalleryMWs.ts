@@ -398,7 +398,7 @@ export class GalleryMWs {
       const parts = GalleryMWs.parsePartsFromMultipartForm(req);
       const sourcePaths: string[] = GalleryMWs.getParameterFromParts(parts, 'sourcePath');
       const destinationPath: string = GalleryMWs.getParameterFromParts(parts, 'destinationPath', false)[0];
-      let destinationFileName: string = GalleryMWs.getParameterFromParts(parts, 'destinationFileName', false, /[^/\\:*?"<>|]+/)[0];
+      const destinationFileName: string = GalleryMWs.getParameterFromParts(parts, 'destinationFileName', false, /[^/\\:*?"<>|]+/)[0];
       const force: boolean = GalleryMWs.getParameterFromParts(parts, 'force', true, /true|false/)[0] === 'true';
 
       if (sourcePaths.length > 1 && destinationFileName) {
@@ -410,35 +410,34 @@ export class GalleryMWs {
           throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Source path is not available for user', req);
         }
 
+        const fullSourcePath = path.join(ProjectPath.ImageFolder, sourcePath);
         let isDirectory = false;
-        try { isDirectory = await fsp.stat(path.join(ProjectPath.ImageFolder, sourcePath)).then(stat => stat.isDirectory()) }
+        try { isDirectory = await fsp.stat(fullSourcePath).then(stat => stat.isDirectory()) }
         catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error checking source path: ' + e.toString(), req); }
         const isFile = !isDirectory;
 
-        let iterDestinationPath = destinationPath;
+        let fileDestinationPath = destinationPath;
         if (isFile) {
           if (!destinationFileName) {
-            destinationFileName = path.basename(sourcePath);
+            fileDestinationPath = path.join(destinationPath, path.basename(sourcePath));
           }
           else if (destinationFileName && path.extname(destinationFileName) === '') {
-            destinationFileName += path.extname(sourcePath);
+            fileDestinationPath = path.join(destinationPath, destinationFileName + path.extname(sourcePath));
           }
-          iterDestinationPath = path.join(destinationPath, destinationFileName);
         }
         if (isDirectory && destinationFileName) {
           throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Cannot specify destination file name when moving a directory', req);
         }
 
-        if (UserDTOUtils.isDirectoryPathAvailable(iterDestinationPath, req.session['user'].permissions) === false) {
+        if (UserDTOUtils.isDirectoryPathAvailable(fileDestinationPath, req.session['user'].permissions) === false) {
           throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Destination path is not available for user', req);
         }
 
-        const fullSourcePath = path.join(ProjectPath.ImageFolder, sourcePath);
-        const fullDestinationPath = path.join(ProjectPath.ImageFolder, iterDestinationPath);
+        const fullDestinationPath = path.join(ProjectPath.ImageFolder, fileDestinationPath);
 
         if (force === false) {
           await fsp.access(fullDestinationPath).then(
-            () => { throw new ErrorDTO(ErrorCodes.FILE_EXISTS_ERROR, 'File already exists at destination: ' + iterDestinationPath, req); },
+            () => { throw new ErrorDTO(ErrorCodes.FILE_EXISTS_ERROR, 'File already exists at destination: ' + fileDestinationPath, req); },
             () => { /* File does not exist, proceed with write */ }
           );
         }

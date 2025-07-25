@@ -14,11 +14,11 @@ import { GalleryCacheService } from '../cache.gallery.service';
   styleUrls: ['./file-actions.component.css'],
 })
 export class GalleryFileActionsComponent {
-  @Input() action: 'move' | 'delete';
+  @Input() action: 'move' | 'delete' | 'clear';
   @Input() showText = true;
+  @Input() inputPaths: string[] = [];
   modalRef: BsModalRef = null;
 
-  @Input() sourcePaths: string[] = [];
   destinationPath = '';
   destinationFileName = '';
   force = false;
@@ -27,14 +27,13 @@ export class GalleryFileActionsComponent {
 
   constructor(
     private modalService: BsModalService,
-    private fileActionsService: GalleryFileActionsService,
+    public fileActionsService: GalleryFileActionsService,
     private notification: NotificationService,
     private router: Router,
     private contentLoaderService: ContentLoaderService
   ) {}
 
   resetForm(): void {
-    this.sourcePaths = [];
     this.destinationPath = '';
     this.destinationFileName = '';
     this.force = false;
@@ -46,6 +45,7 @@ export class GalleryFileActionsComponent {
       console.log('Modal opened for action:', this.action);
       this.modalRef = this.modalService.show(template);
     }
+    this.fileActionsService.addSelectedPaths(this.inputPaths);
   }
 
   hideModal(): void {
@@ -56,32 +56,34 @@ export class GalleryFileActionsComponent {
   }
 
   addSourcePath(path: string): void {
-    if (!this.sourcePaths.includes(path)) {
-      this.sourcePaths.push(path);
-    }
+    this.fileActionsService.addSelectedPath(path);
   }
 
   removeSourcePath(path: string): void {
-    this.sourcePaths = this.sourcePaths.filter(p => p !== path);
+    this.fileActionsService.removeSelectedPath(path);
   }
 
   getPlaceholderFileName(): string {
-    if (this.sourcePaths.length === 1) {
-      return path.basename(this.sourcePaths[0]);
+    if (!this.fileActionsService.multipleSelectedPaths()) {
+      return path.basename(this.fileActionsService.getSelectedPaths()[0]);
     }
     else {
-      return "";
+      return "(unchanged)";
     }
   }
 
   private plural(): string {
-    return this.sourcePaths.length > 1 ? 's' : '';
+    return this.fileActionsService.multipleSelectedPaths() ? 's' : '';
+  }
+
+  private nTargets(): number {
+    return this.fileActionsService.numberOfSelectedPaths();
   }
 
   async performAction(): Promise<void> {
     if (this.action === 'move') {
       try {
-        await this.fileActionsService.moveFiles(this.sourcePaths, this.destinationPath, this.destinationFileName, this.force);
+        await this.fileActionsService.moveFiles(this.destinationPath, this.destinationFileName, this.force);
       } catch (error) {
         if (error.code == ErrorCodes.INVALID_PATH_ERROR) {
           this.notification.error('Invalid destination path: ' + this.destinationPath);
@@ -97,23 +99,28 @@ export class GalleryFileActionsComponent {
         this.invalidPathError = false;
         return;
       }
-      this.notification.success(`Successfully moved ${this.sourcePaths.length} file${this.plural()} to ${this.destinationPath}`);
+      this.notification.success(`Successfully moved ${this.nTargets()} file${this.plural()} to ${this.destinationPath}`);
     } else if (this.action === 'delete') {
       try {
-        await this.fileActionsService.deleteFiles(this.sourcePaths);
+        await this.fileActionsService.deleteFiles();
       } catch (error) {
         this.notification.error(`Failed to delete file${this.plural()}`);
         return;
       }
-      this.notification.success(`Successfully deleted ${this.sourcePaths.length} file${this.plural()}`);
+      this.notification.success(`Successfully deleted ${this.nTargets()} file${this.plural()}`);
     }
+    else {
+      this.fileActionsService.clearSelectedPaths();
+      return;
+    }
+    this.fileActionsService.clearSelectedPaths();
+    this.resetForm();
+    this.hideModal();
     await this.redirectToParentDirectory();
   }
 
   private async redirectToParentDirectory(): Promise<void> {
-    const parentPath = path.dirname(this.sourcePaths[0]);
-    this.hideModal();
-    this.resetForm();
+    const parentPath = path.dirname(this.fileActionsService.getSelectedPaths()[0]);
     GalleryCacheService.deleteCache();
     await this.router.navigate(['/gallery', parentPath]);
     await this.contentLoaderService.loadDirectory(parentPath);

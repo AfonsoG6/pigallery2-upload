@@ -46,11 +46,11 @@ export class GalleryGridComponent
   screenHeight = 0;
   isAfterViewInit = false;
   subscriptions: {
-    girdSize: Subscription;
+    gridSize: Subscription;
     route: Subscription;
   } = {
     route: null,
-    girdSize: null
+    gridSize: null
   };
   delayedRenderUpToPhoto: string = null;
   private scrollListenerPhotos: GalleryPhotoComponent[] = [];
@@ -101,7 +101,7 @@ export class GalleryGridComponent
       }
     );
 
-    this.subscriptions.girdSize = this.navigatorService.girdSize.subscribe(gs => {
+    this.subscriptions.gridSize = this.navigatorService.gridSize.subscribe(gs => {
       switch (gs) {
         case GridSizes.extraSmall:
           this.TARGET_COL_COUNT = 12;
@@ -151,9 +151,9 @@ export class GalleryGridComponent
       this.subscriptions.route.unsubscribe();
       this.subscriptions.route = null;
     }
-    if (this.subscriptions.girdSize !== null) {
-      this.subscriptions.girdSize.unsubscribe();
-      this.subscriptions.girdSize = null;
+    if (this.subscriptions.gridSize !== null) {
+      this.subscriptions.gridSize.unsubscribe();
+      this.subscriptions.gridSize = null;
     }
   }
 

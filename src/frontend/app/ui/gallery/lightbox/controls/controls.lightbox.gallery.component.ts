@@ -456,7 +456,7 @@ export class ControlsLightboxComponent implements OnDestroy, OnInit, OnChanges {
   }
 
   private hideControls = () => {
-    this.controllersDimmed = false;
+    this.controllersDimmed = true;
   };
 
   private updateFaceContainerDim(): void {

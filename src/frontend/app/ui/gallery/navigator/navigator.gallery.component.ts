@@ -17,6 +17,7 @@ import {FilterService} from '../filter/filter.service';
 import {ContentLoaderService, ContentWrapperWithError, DirectoryContent} from '../contentLoader.service';
 import {GalleryNavigatorService} from './navigator.service';
 import {GridSizes} from '../../../../../common/entities/GridSizes';
+import { GalleryFileActionsService } from '../file-actions/file-actions.service';
 
 @Component({
   selector: 'app-gallery-navbar',
@@ -54,6 +55,7 @@ export class GalleryNavigatorComponent {
       public filterService: FilterService,
       public sortingService: GallerySortingService,
       public navigatorService: GalleryNavigatorService,
+      public fileActionsService: GalleryFileActionsService,
       private router: Router,
       public sanitizer: DomSanitizer
   ) {

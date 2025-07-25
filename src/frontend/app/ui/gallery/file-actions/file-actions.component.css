@@ -19,5 +19,6 @@
 
 .action-dropdown-item {
   display: inherit;
+  cursor: pointer;
   padding: var(--bs-dropdown-item-padding-y) var(--bs-dropdown-item-padding-x);
 }

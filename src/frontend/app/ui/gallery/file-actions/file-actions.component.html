@@ -1,22 +1,24 @@
 <div *ngIf="action === 'move'" class="action-dropdown-item" style="color: var(--bs-primary-text-emphasis);" (click)="openModal(fileActionsModal)">
-  <ng-icon class="me-2"
-           name="ionFolderOutline" title="Move" i18n-title></ng-icon>
-  <span *ngIf="showText" i18n>Move</span>
+  <ng-icon name="ionFolderOutline" title="Move" i18n-title></ng-icon>
+  <span *ngIf="showText" class="ms-2" i18n>Move</span>
 </div>
 <div *ngIf="action === 'delete'" class="action-dropdown-item" style="color: var(--bs-danger);" (click)="openModal(fileActionsModal)">
-  <ng-icon class="me-2"
-           name="ionTrashOutline" title="Delete" i18n-title></ng-icon>
-  <span *ngIf="showText" i18n>Delete</span>
+  <ng-icon name="ionTrashOutline" title="Delete" i18n-title></ng-icon>
+  <span *ngIf="showText" class="ms-2" i18n>Delete</span>
+</div>
+<div *ngIf="action === 'clear'" class="action-dropdown-item" style="color: var(--bs-secondary-text-emphasis);" (click)="performAction()">
+  <ng-icon name="ionCloseCircleOutline" title="Clear Selection" i18n-title></ng-icon>
+  <span *ngIf="showText" class="ms-2" i18n>Clear Selection</span>
 </div>
 
 <ng-template #fileActionsModal>
   <div class="modal-header">
-    <h5 class="modal-title" *ngIf="action === 'move'" i18n>Move Files</h5>
-    <h5 class="modal-title" *ngIf="action === 'delete'" i18n>Delete Files</h5>
+    <h5 class="modal-title" *ngIf="action === 'move'" i18n>Moving {{fileActionsService.numberOfSelectedPaths()}} files</h5>
+    <h5 class="modal-title" *ngIf="action === 'delete'" i18n>Deleting {{fileActionsService.numberOfSelectedPaths()}} files</h5>
     <button type="button" class="btn-close" (click)="hideModal()" aria-label="Close"></button>
   </div>
   <div class="modal-body">
-    <div *ngIf="action === 'move'" class="row">
+    <div *ngIf="action === 'move'" class="row mb-3">
       <div style="flex: 0 0 auto; width:20%;">
         <label for="destinationPath" style="vertical-align: middle;">Destination:</label>
       </div>
@@ -32,7 +34,7 @@
                id="destinationFileName"
                class="form-control flex-grow-1"
                (change)="onChangeDestinationFileName($event)"
-               [disabled]="sourcePaths.length > 1"
+               [disabled]="fileActionsService.multipleSelectedPaths()"
                [ngModel]="destinationFileName"
                [placeholder]="getPlaceholderFileName()">
         <ng-icon *ngIf="invalidPathError" name="ionCloseCircleOutline" class="text-danger ms-2"></ng-icon>
