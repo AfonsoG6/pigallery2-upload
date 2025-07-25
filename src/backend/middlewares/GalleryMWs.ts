@@ -437,12 +437,10 @@ export class GalleryMWs {
         const fullDestinationPath = path.join(ProjectPath.ImageFolder, iterDestinationPath);
 
         if (force === false) {
-          // Check if destination file already exists
-          try {
-            await fsp.access(fullDestinationPath);
-            throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'File already exists at destination: ' + iterDestinationPath, req);
-          }
-          catch (e) { /* File does not exist, proceed with move */ }
+          await fsp.access(fullDestinationPath).then(
+            () => { throw new ErrorDTO(ErrorCodes.FILE_EXISTS_ERROR, 'File already exists at destination: ' + iterDestinationPath, req); },
+            () => { /* File does not exist, proceed with write */ }
+          );
         }
 
         try { await fsp.mkdir(path.dirname(fullDestinationPath), { recursive: true }); }
@@ -502,7 +500,7 @@ export class GalleryMWs {
       const autoOrganize: boolean = GalleryMWs.getParameterFromParts(parts, "autoOrganize", true, /true|false/)[0] === "true";
       const force: boolean = GalleryMWs.getParameterFromParts(parts, "force", true, /true|false/)[0] === "true";
       let uploadPath: string = GalleryMWs.getParameterFromParts(parts, 'uploadPath')[0];
-      const lastModified: string = GalleryMWs.getParameterFromParts(parts, 'lastModified', true, /\d+/)[0];
+      const lastModified: number = parseInt(GalleryMWs.getParameterFromParts(parts, 'lastModified', true, /\d+/)[0], 10);
       const files = parts.filter(
         (p): boolean => (
           p.name === "file" &&
@@ -533,19 +531,17 @@ export class GalleryMWs {
       for (const file of files) {
         const filePath = path.join(uploadPath, file.filename);
         if (force === false) {
-          // Check if file already exists
-          try {
-            await fsp.access(filePath);
-            const relativePath = path.relative(ProjectPath.ImageFolder, filePath);
-            throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'File already exists: ' + relativePath, req);
-          }
-          catch (e) { /* File does not exist, proceed with write */ }
+          const relativePath = path.relative(ProjectPath.ImageFolder, filePath);
+          await fsp.access(filePath).then(
+            () => { throw new ErrorDTO(ErrorCodes.FILE_EXISTS_ERROR, 'File already exists: ' + relativePath, req); },
+            () => { /* File does not exist, proceed with write */ }
+          );
         }
         try { await fsp.writeFile(filePath, file.data); }
         catch (e) {throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error writing file to disk: ' + e.toString(), req); }
         try { await fsp.chmod(filePath, 0o666); }
         catch (e) {throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file permissions: ' + e.toString(), req); }
-        try { await fsp.utimes(filePath, lastModified, lastModified); }
+        try { await fsp.utimes(filePath, new Date(lastModified), new Date(lastModified)); }
         catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file last modified time: ' + e.toString(), req); }
       }
     }

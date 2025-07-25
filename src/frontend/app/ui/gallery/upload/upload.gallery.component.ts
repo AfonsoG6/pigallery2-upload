@@ -143,6 +143,10 @@ export class GalleryUploadComponent implements OnInit {
           this.status = UploadStatus.STANDBY;
           return;
         }
+        if (error.code == ErrorCodes.FILE_EXISTS_ERROR) {
+          this.notification.error(`File${this.plural()} already exists: ${fileName}`);
+          continue;
+        }
       }
     }
     if (this.successfulFiles.length === 0 && this.failedFiles.length > 0) {

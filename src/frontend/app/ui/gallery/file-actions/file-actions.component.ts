@@ -88,6 +88,11 @@ export class GalleryFileActionsComponent {
           this.invalidPathError = true;
           return;
         }
+        if (error.code == ErrorCodes.FILE_EXISTS_ERROR) {
+          this.notification.error(`File${this.plural()} already exists at destination: ${this.destinationPath}`);
+          this.invalidPathError = false;
+          return;
+        }
         this.notification.error(`Failed to move file${this.plural()}`);
         this.invalidPathError = false;
         return;

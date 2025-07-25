@@ -20,6 +20,7 @@ export enum ErrorCodes {
 
   INPUT_ERROR = 50,
   INVALID_PATH_ERROR = 51,
+  FILE_EXISTS_ERROR = 52,
 
   SETTINGS_ERROR = 60,
   TASK_ERROR = 61,
