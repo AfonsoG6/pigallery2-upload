@@ -64,7 +64,7 @@ ng-icon:not([id="resultIcon"]):not([strokeWidth]) svg {
 }
 
 ng-icon[id="resultIcon"]:not([strokeWidth]) svg {
-  vertical-align: middle;
+  vertical-align: text-top;
   --ng-icon__stroke-width: 40;
 }
 

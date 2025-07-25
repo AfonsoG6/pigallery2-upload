@@ -21,3 +21,29 @@
   cursor: pointer;
   padding: var(--bs-dropdown-item-padding-y) var(--bs-dropdown-item-padding-x);
 }
+
+.list-group {
+  margin-top: 1rem;
+  max-height: 50vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.list-group-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  overflow: hidden;
+}
+
+.list-group-item span {
+  flex-grow: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.list-group-item .btn {
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}

@@ -129,9 +129,10 @@ export class GalleryFileActionsComponent {
     this.fileActionsService.updateFailedAndSuccessfulPaths(resultDTO.failedPaths.map(failedPath => failedPath.path));
     if (this.state === State.FINISHED) {
       this.hideModal();
+      const parentPath = path.dirname(this.fileActionsService.getSelectedPaths()[0]);
       this.fileActionsService.clearSelectedPaths();
       this.resetForm();
-      await this.redirectToParentDirectory();
+      await this.redirectToDirectory(parentPath);
     }
   }
 
@@ -173,11 +174,10 @@ export class GalleryFileActionsComponent {
     }
   }
 
-  private async redirectToParentDirectory(): Promise<void> {
-    const parentPath = path.dirname(this.fileActionsService.getSelectedPaths()[0]);
+  private async redirectToDirectory(dir: string): Promise<void> {
     GalleryCacheService.deleteCache();
-    await this.router.navigate(['/gallery', parentPath]);
-    await this.contentLoaderService.loadDirectory(parentPath);
+    await this.router.navigate(['/gallery', dir]);
+    await this.contentLoaderService.loadDirectory(dir);
   }
 
   onChangeDestinationPath(event: Event): void {
