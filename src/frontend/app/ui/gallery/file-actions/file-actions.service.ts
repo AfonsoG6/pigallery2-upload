@@ -1,9 +1,12 @@
 import {Injectable} from '@angular/core';
 import { NetworkService } from '../../../model/network/network.service';
+import { FileActionResultDTO } from '../../../../../common/entities/FileActionResultDTO';
 
 @Injectable()
 export class GalleryFileActionsService {
   private selectedPaths: string[] = [];
+  private successfulPaths: Set<string> = new Set();
+  private failedPaths: Set<string> = new Set();
 
   constructor(private networkService: NetworkService) {}
 
@@ -46,6 +49,30 @@ export class GalleryFileActionsService {
     }
   }
 
+  public updateFailedAndSuccessfulPaths(failedPaths: string[]): void {
+    for (const sPath of this.selectedPaths) {
+      if (failedPaths.includes(sPath)) {
+        this.failedPaths.add(sPath);
+      }
+      else {
+        this.failedPaths.delete(sPath);
+        this.successfulPaths.add(sPath);
+      }
+    }
+  }
+
+  public allFailed(paths: string[]): boolean {
+    return paths.length === this.selectedPaths.filter(path => !this.successful(path)).length;
+  }
+
+  public successful(path: string): boolean {
+    return this.successfulPaths.has(path);
+  }
+
+  public failed(path: string): boolean {
+    return this.failedPaths.has(path);
+  }
+
   public toggleSelectedPath(path: string): void {
     if (this.pathIsSelected(path)) {
       this.removeSelectedPath(path);
@@ -58,9 +85,10 @@ export class GalleryFileActionsService {
     return this.selectedPaths.length > 0;
   }
 
-  public async moveFiles(destinationPath: string, destinationFileName: string, force: boolean): Promise<void> {
+  public async moveFiles(destinationPath: string, destinationFileName: string, force: boolean): Promise<FileActionResultDTO> {
     const formData = new FormData();
     for (const sourcePath of this.selectedPaths) {
+      if (this.successful(sourcePath)) continue;
       formData.append('sourcePath', sourcePath);
     }
     formData.append('destinationPath', destinationPath);
@@ -70,21 +98,22 @@ export class GalleryFileActionsService {
     formData.append('force', String(force));
 
     try {
-      return await this.networkService.postMultipartFormData('/gallery/move/', formData);
+      return await this.networkService.postMultipartFormData<FileActionResultDTO>('/gallery/move/', formData);
     } catch (error) {
       console.error('Error moving files:', error);
       throw error;
     }
   }
 
-  public async deleteFiles(): Promise<void> {
+  public async deleteFiles(): Promise<FileActionResultDTO> {
     const formData = new FormData();
     for (const targetPath of this.selectedPaths) {
+      if (this.successful(targetPath)) continue;
       formData.append('targetPath', targetPath);
     }
 
     try {
-      return await this.networkService.postMultipartFormData('/gallery/delete/', formData);
+      return await this.networkService.postMultipartFormData<FileActionResultDTO>('/gallery/delete/', formData);
     } catch (error) {
       console.error('Error deleting files:', error);
       throw error;

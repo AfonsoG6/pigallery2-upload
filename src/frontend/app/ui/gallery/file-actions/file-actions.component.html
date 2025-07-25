@@ -1,66 +1,79 @@
-<div *ngIf="action === 'move'" class="action-dropdown-item" style="color: var(--bs-primary-text-emphasis);" (click)="openModal(fileActionsModal)">
+<div *ngIf="action === 'move'" class="action-dropdown-item" style="color: var(--bs-primary-text-emphasis);"
+  (click)="openModal(fileActionsModal)">
   <ng-icon name="ionFolderOutline" title="Move" i18n-title></ng-icon>
   <span *ngIf="showText" class="ms-2" i18n>Move</span>
 </div>
-<div *ngIf="action === 'delete'" class="action-dropdown-item" style="color: var(--bs-danger);" (click)="openModal(fileActionsModal)">
+<div *ngIf="action === 'delete'" class="action-dropdown-item" style="color: var(--bs-danger);"
+  (click)="openModal(fileActionsModal)">
   <ng-icon name="ionTrashOutline" title="Delete" i18n-title></ng-icon>
   <span *ngIf="showText" class="ms-2" i18n>Delete</span>
 </div>
-<div *ngIf="action === 'clear'" class="action-dropdown-item" style="color: var(--bs-secondary-text-emphasis);" (click)="performAction()">
+<div *ngIf="action === 'clear'" class="action-dropdown-item" style="color: var(--bs-secondary-text-emphasis);"
+  (click)="performAction()">
   <ng-icon name="ionCloseCircleOutline" title="Clear Selection" i18n-title></ng-icon>
   <span *ngIf="showText" class="ms-2" i18n>Clear Selection</span>
 </div>
 
 <ng-template #fileActionsModal>
   <div class="modal-header">
-    <h5 class="modal-title" *ngIf="action === 'move'" i18n>Moving {{fileActionsService.numberOfSelectedPaths()}} files</h5>
-    <h5 class="modal-title" *ngIf="action === 'delete'" i18n>Deleting {{fileActionsService.numberOfSelectedPaths()}} files</h5>
-    <button type="button" class="btn-close" (click)="hideModal()" aria-label="Close"></button>
+    <h5 class="modal-title" *ngIf="action === 'move'" i18n>Moving {{fileActionsService.numberOfSelectedPaths()}} files
+    </h5>
+    <h5 class="modal-title" *ngIf="action === 'delete'" i18n>Deleting {{fileActionsService.numberOfSelectedPaths()}}
+      files</h5>
+    <button type="button" class="btn-close" (click)="close()" [disabled]="state === 1" aria-label="Close"></button>
   </div>
   <div class="modal-body">
-    <div *ngIf="action === 'move'" class="row mb-3">
-      <div style="flex: 0 0 auto; width:20%;">
-        <label for="destinationPath" style="vertical-align: middle;">Destination:</label>
-      </div>
-      <div class="flex-container" style="flex: 1 1 auto; width:80%;">
-        <input type="text"
-               id="destinationPath"
-               class="form-control flex-grow-1"
-               (change)="onChangeDestinationPath($event)"
-               [ngModel]="destinationPath"
-               placeholder="path\to\move\to">
-        <span style="vertical-align: middle; padding-left: 4px; padding-right: 4px;">\</span>
-        <input type="text"
-               id="destinationFileName"
-               class="form-control flex-grow-1"
-               (change)="onChangeDestinationFileName($event)"
-               [disabled]="fileActionsService.multipleSelectedPaths()"
-               [ngModel]="destinationFileName"
-               [placeholder]="getPlaceholderFileName()">
-        <ng-icon *ngIf="invalidPathError" name="ionCloseCircleOutline" class="text-danger ms-2"></ng-icon>
-      </div>
-    </div>
-    <div *ngIf="action === 'move'" class="row">
-      <div class="col-4">
-        <label class="control-label" for="force" style="vertical-align: middle;" i18n>Force override:</label>
-      </div>
-      <div class="col-8">
-        <div class="form-check form-switch">
-          <input class="form-check-input"
-                 type="checkbox"
-                 role="switch"
-                 id="force"
-                 (change)="onChangeForce($event)"
-                 [checked]="force">
+    <form #uploadForm="ngForm" class="form-horizontal">
+      <ul class="list-group">
+        <li class="list-group-item" *ngFor="let selectedPath of fileActionsService.getSelectedPaths()">
+          <span>{{ selectedPath }}</span>
+          <ng-icon *ngIf="fileActionsService.successful(selectedPath)" id="resultIcon" name="ionCheckmarkCircleOutline"
+            class="text-success ms-2"></ng-icon>
+          <ng-icon *ngIf="fileActionsService.failed(selectedPath)" id="resultIcon" name="ionCloseCircleOutline"
+            class="text-danger ms-2"></ng-icon>
+          <ng-container *ngIf="state === 0">
+            <button type="button" class="btn btn-danger btn-sm float-end"
+              (click)="fileActionsService.removeSelectedPath(selectedPath)" i18n>Remove</button>
+          </ng-container>
+        </li>
+      </ul>
+      <div *ngIf="action === 'move'">
+        <div class="row mt-3">
+          <label for="destinationPath" style="vertical-align: middle;" class="col-12">Destination:</label>
+        </div>
+        <div class="row mt-1">
+          <div class="flex-container col-12">
+            <input type="text" id="destinationPath" class="form-control"
+              (change)="onChangeDestinationPath($event)" [value]="destinationPath || ''" [disabled]="state !== 0"
+              placeholder="path\to\move\to">
+            <span style="vertical-align: middle; padding-left: 4px; padding-right: 4px;">\</span>
+            <input type="text" id="destinationFileName" class="form-control"
+              (change)="onChangeDestinationFileName($event)"
+              [disabled]="fileActionsService.multipleSelectedPaths() || state !== 0" [value]="destinationFileName || ''"
+              [placeholder]="getPlaceholderFileName()">
+            <ng-icon *ngIf="invalidPathError" name="ionCloseCircleOutline" class="text-danger ms-2"></ng-icon>
+          </div>
+        </div>
+        <div class="row mt-3">
+          <div class="col-4">
+            <label class="control-label" for="force" style="vertical-align: middle;" i18n>Force override:</label>
+          </div>
+          <div class="col-8">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" role="switch" id="force" (change)="onChangeForce($event)"
+                [disabled]="state !== 0" [ngModel]="force">
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-    <div *ngIf="action === 'delete'" class="row" i18n>
-      Are you sure you want to delete the selected files?
-    </div>
+      <div *ngIf="action === 'delete'" class="row mt-3">
+        <span class="col-12" i18n>Are you sure you want to delete the selected files?</span>
+      </div>
+    </form>
   </div>
   <div class="modal-footer">
-    <button type="button" class="btn btn-secondary" (click)="hideModal()" i18n>Cancel</button>
-    <button type="button" class="btn btn-primary" (click)="performAction()" i18n>Confirm</button>
+    <button type="button" class="btn btn-secondary" (click)="close()" [disabled]="state !== 0" i18n>Cancel</button>
+    <button type="button" class="btn btn-primary" (click)="performAction()" [disabled]="state !== 0"
+      i18n>Confirm</button>
   </div>
 </ng-template>

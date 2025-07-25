@@ -2,11 +2,19 @@ import { Component, Input, TemplateRef } from '@angular/core';
 import { BsModalService, BsModalRef } from 'ngx-bootstrap/modal';
 import { GalleryFileActionsService } from './file-actions.service';
 import * as path from 'path-browserify';
-import { ErrorCodes } from '../../../../../common/entities/Error';
+import { ErrorCodes, ErrorDTO } from '../../../../../common/entities/Error';
 import { NotificationService } from '../../../model/notification.service';
 import { Router } from '@angular/router';
 import { ContentLoaderService } from '../contentLoader.service';
 import { GalleryCacheService } from '../cache.gallery.service';
+import { FileActionResultDTO } from '../../../../../common/entities/FileActionResultDTO';
+
+enum State {
+  STANDBY = 0,
+  PERFORMING = 1,
+  FINISHED = 2,
+}
+
 
 @Component({
   selector: 'app-file-actions',
@@ -23,6 +31,7 @@ export class GalleryFileActionsComponent {
   destinationFileName = '';
   force = false;
 
+  state: State = State.STANDBY;
   invalidPathError = false;
 
   constructor(
@@ -38,6 +47,7 @@ export class GalleryFileActionsComponent {
     this.destinationFileName = '';
     this.force = false;
     this.invalidPathError = false;
+    this.state = State.STANDBY;
   }
 
   openModal(template: TemplateRef<unknown>): void {
@@ -52,6 +62,14 @@ export class GalleryFileActionsComponent {
     if (this.modalRef) {
       this.modalRef.hide();
       this.modalRef = null;
+    }
+  }
+
+  close(): void {
+    this.hideModal();
+    if (this.inputPaths.length > 0 || this.state === State.FINISHED) {
+      this.fileActionsService.clearSelectedPaths();
+      this.resetForm();
     }
   }
 
@@ -72,7 +90,8 @@ export class GalleryFileActionsComponent {
     }
   }
 
-  private plural(): string {
+  private plural(opposite = false): string {
+    if (opposite) return this.fileActionsService.multipleSelectedPaths() ? '' : 's';
     return this.fileActionsService.multipleSelectedPaths() ? 's' : '';
   }
 
@@ -80,42 +99,78 @@ export class GalleryFileActionsComponent {
     return this.fileActionsService.numberOfSelectedPaths();
   }
 
+  private handleResult(resultDTO: FileActionResultDTO): void {
+    if (resultDTO.failedPaths.length === 0) {
+      this.state = State.FINISHED;
+      if (this.action === 'move')
+        this.notification.success(`Successfully moved ${this.nTargets()} file${this.plural()} to ${this.destinationPath}`);
+      else if (this.action === 'delete')
+        this.notification.success(`Successfully deleted ${this.nTargets()} file${this.plural()}`);
+    }
+    else {
+      if (this.fileActionsService.allFailed(resultDTO.failedPaths.map(failedPath => failedPath.path))) {
+        // Send one single notification if all paths failed
+        const firstReason = resultDTO.failedPaths[0].reason;
+        if (resultDTO.failedPaths.every(failedPath => failedPath.reason.code === firstReason.code)) {
+          this.notifyError(firstReason);
+        }
+        else {
+          this.notification.error(`Failed to ${this.action} file${this.plural()} due to multiple errors`);
+        }
+      }
+      else {
+        // Send individual notifications for each failed path
+        for (const failedPathDTO of resultDTO.failedPaths) {
+          this.notification.error(failedPathDTO.reason.message);
+        }
+      }
+      this.state = State.STANDBY;
+    }
+    this.fileActionsService.updateFailedAndSuccessfulPaths(resultDTO.failedPaths.map(failedPath => failedPath.path));
+  }
+
+  private notifyError(errorDTO: ErrorDTO): void {
+    if (errorDTO.code === ErrorCodes.INVALID_PATH_ERROR) {
+      this.notification.error('Invalid destination path: ' + this.destinationPath);
+      this.invalidPathError = true;
+    } else if (errorDTO.code === ErrorCodes.FILE_EXISTS_ERROR) {
+      this.notification.error(`File already exists at destination: ${this.destinationPath}`);
+      this.invalidPathError = false;
+    } else {
+      this.notification.error(`Failed to ${this.action} file`);
+      this.invalidPathError = false;
+    }
+  }
+
   async performAction(): Promise<void> {
     if (this.action === 'move') {
       try {
-        await this.fileActionsService.moveFiles(this.destinationPath, this.destinationFileName, this.force);
+        this.state = State.PERFORMING;
+        const resultDTO = await this.fileActionsService.moveFiles(this.destinationPath, this.destinationFileName, this.force);
+        this.handleResult(resultDTO);
       } catch (error) {
-        if (error.code == ErrorCodes.INVALID_PATH_ERROR) {
-          this.notification.error('Invalid destination path: ' + this.destinationPath);
-          this.invalidPathError = true;
-          return;
-        }
-        if (error.code == ErrorCodes.FILE_EXISTS_ERROR) {
-          this.notification.error(`File${this.plural()} already exists at destination: ${this.destinationPath}`);
-          this.invalidPathError = false;
-          return;
-        }
-        this.notification.error(`Failed to move file${this.plural()}`);
-        this.invalidPathError = false;
+        this.notifyError(error as ErrorDTO);
+        this.state = State.STANDBY;
         return;
       }
-      this.notification.success(`Successfully moved ${this.nTargets()} file${this.plural()} to ${this.destinationPath}`);
-    } else if (this.action === 'delete') {
+    }
+    else if (this.action === 'delete') {
       try {
-        await this.fileActionsService.deleteFiles();
+        const resultDTO = await this.fileActionsService.deleteFiles();
+        this.handleResult(resultDTO);
       } catch (error) {
-        this.notification.error(`Failed to delete file${this.plural()}`);
+        this.notifyError(error as ErrorDTO);
+        this.state = State.STANDBY;
         return;
       }
-      this.notification.success(`Successfully deleted ${this.nTargets()} file${this.plural()}`);
     }
     else {
       this.fileActionsService.clearSelectedPaths();
       return;
     }
+    this.hideModal();
     this.fileActionsService.clearSelectedPaths();
     this.resetForm();
-    this.hideModal();
     await this.redirectToParentDirectory();
   }
 

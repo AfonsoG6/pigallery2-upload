@@ -23,8 +23,8 @@
       <div class="row mb-3">
         <div class="col-12">
           <div class="drop-zone"
-                [class.dragover]="status === 0 && isDragOver"
-                [class.disabled]="status !== 0"
+                [class.dragover]="state === 0 && isDragOver"
+                [class.disabled]="state !== 0"
                 (drop)="onFileDropped($event)"
                 (dragover)="onDragOver($event)"
                 (dragleave)="onDragLeave()"
@@ -38,7 +38,7 @@
               <span>{{ file.key }}</span>
               <ng-icon *ngIf="successfulFiles.includes(file.key)" id="resultIcon" name="ionCheckmarkCircleOutline" class="text-success ms-2"></ng-icon>
               <ng-icon *ngIf="failedFiles.includes(file.key)" id="resultIcon" name="ionCloseCircleOutline" class="text-danger ms-2"></ng-icon>
-              <ng-container *ngIf="status === 0">
+              <ng-container *ngIf="state === 0">
                 <button type="button" class="btn btn-danger btn-sm float-end" (click)="removeFile(file.key)" i18n>Remove</button>
               </ng-container>
             </li>
@@ -57,7 +57,7 @@
                    id="autoOrganize"
                    (change)="onChangeAutoOrganize($event)"
                    [checked]="autoOrganize"
-                   [disabled]="status !== 0">
+                   [disabled]="state !== 0">
           </div>
         </div>
       </div>
@@ -73,7 +73,7 @@
                   style="display: flex;"
                   (change)="setUploadDir($event)"
                   [ngModel]="uploadDir"
-                  [disabled]="status !== 0">
+                  [disabled]="state !== 0">
           </div>
           <ng-icon *ngIf="invalidPathError" id="resultIcon" name="ionCloseCircleOutline" class="text-danger ms-2 me-2"></ng-icon>
         </div>
@@ -90,14 +90,14 @@
                    id="force"
                    (change)="onChangeForce($event)"
                    [checked]="force"
-                   [disabled]="status !== 0">
+                   [disabled]="state !== 0">
           </div>
         </div>
       </div>
     </form>
   </div>
   <div class="modal-footer">
-    <button type="button" class="btn" (click)="resetForm()" [disabled]="status === 1" i18n>Reset</button>
-    <button type="button" class="btn btn-primary" (click)="uploadFiles()" [disabled]="status !== 0" i18n>Upload</button>
+    <button type="button" class="btn" (click)="resetForm()" [disabled]="state === 1" i18n>Reset</button>
+    <button type="button" class="btn btn-primary" (click)="uploadFiles()" [disabled]="state !== 0" i18n>Upload</button>
   </div>
 </ng-template>

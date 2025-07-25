@@ -10,7 +10,7 @@ import { AuthenticationService } from '../../../model/network/authentication.ser
 import { ErrorCodes } from '../../../../../common/entities/Error';
 import { GalleryCacheService } from '../cache.gallery.service';
 
-enum UploadStatus {
+enum State {
   STANDBY = 0,
   UPLOADING = 1,
   FINISHED = 2,
@@ -27,7 +27,7 @@ export class GalleryUploadComponent implements OnInit {
   modalRef: BsModalRef;
   isDragOver = false;
 
-  status: UploadStatus = UploadStatus.STANDBY;
+  state: State = State.STANDBY;
 
   files: { [key: string]: File } = {};
   successfulFiles: string[] = [];
@@ -75,18 +75,18 @@ export class GalleryUploadComponent implements OnInit {
 
   onDragOver(event: DragEvent): void {
     event.preventDefault();
-    if (this.status !== UploadStatus.STANDBY) return;
+    if (this.state !== State.STANDBY) return;
     this.isDragOver = true;
   }
 
   onDragLeave(): void {
-    if (this.status !== UploadStatus.STANDBY) return;
+    if (this.state !== State.STANDBY) return;
     this.isDragOver = false;
   }
 
   onFileDropped(event: DragEvent): void {
     event.preventDefault();
-    if (this.status !== UploadStatus.STANDBY) return;
+    if (this.state !== State.STANDBY) return;
     this.isDragOver = false;
     if (event.dataTransfer && event.dataTransfer.files) {
       const fileList = event.dataTransfer.files;
@@ -125,7 +125,7 @@ export class GalleryUploadComponent implements OnInit {
       return;
     }
 
-    this.status = UploadStatus.UPLOADING;
+    this.state = State.UPLOADING;
     for (const fileName in this.files) {
       if (this.successfulFiles.includes(fileName)) continue;
 
@@ -140,7 +140,7 @@ export class GalleryUploadComponent implements OnInit {
         if (error.code == ErrorCodes.INVALID_PATH_ERROR) {
           this.notification.error('Invalid upload path: ' + this.uploadDir);
           this.invalidPathError = true;
-          this.status = UploadStatus.STANDBY;
+          this.state = State.STANDBY;
           return;
         }
         if (error.code == ErrorCodes.FILE_EXISTS_ERROR) {
@@ -151,7 +151,7 @@ export class GalleryUploadComponent implements OnInit {
     }
     if (this.successfulFiles.length === 0 && this.failedFiles.length > 0) {
       this.notification.error(`Failed to upload file${this.plural()}`);
-      this.status = UploadStatus.STANDBY;
+      this.state = State.STANDBY;
       return;
     }
 
@@ -165,7 +165,7 @@ export class GalleryUploadComponent implements OnInit {
         if (error.code == ErrorCodes.INVALID_PATH_ERROR) {
           this.notification.error('Invalid upload path: ' + this.uploadDir);
           this.invalidPathError = true;
-          this.status = UploadStatus.STANDBY;
+          this.state = State.STANDBY;
           return;
         }
         else {
@@ -175,7 +175,7 @@ export class GalleryUploadComponent implements OnInit {
     }
     this.invalidPathError = false;
     if (this.successfulFiles.length == Object.keys(this.files).length) {
-      this.status = UploadStatus.FINISHED;
+      this.state = State.FINISHED;
       this.refreshParentDirectory();
     }
   }
@@ -195,7 +195,7 @@ export class GalleryUploadComponent implements OnInit {
   }
 
   resetForm(): void {
-    this.status = UploadStatus.STANDBY;
+    this.state = State.STANDBY;
     this.files = {};
     this.successfulFiles = [];
     this.failedFiles = [];
@@ -211,7 +211,7 @@ export class GalleryUploadComponent implements OnInit {
   }
 
   triggerFileInput(): void {
-    if (this.status !== UploadStatus.STANDBY) return;
+    if (this.state !== State.STANDBY) return;
     const fileInput = document.getElementById('fileInput') as HTMLInputElement;
     if (fileInput) {
       fileInput.click();
