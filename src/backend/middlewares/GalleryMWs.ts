@@ -420,28 +420,31 @@ export class GalleryMWs {
           catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error checking source path: ' + e.toString()); }
           const isFile = !isDirectory;
 
-          let fileDestinationPath = destinationPath;
+          let relDestinationPath = destinationPath;
           if (isFile) {
             if (!destinationFileName) {
-              fileDestinationPath = path.join(destinationPath, path.basename(sourcePath));
+              relDestinationPath = path.join(destinationPath, path.basename(sourcePath));
             }
             else if (destinationFileName && path.extname(destinationFileName) === '') {
-              fileDestinationPath = path.join(destinationPath, destinationFileName + path.extname(sourcePath));
+              relDestinationPath = path.join(destinationPath, destinationFileName + path.extname(sourcePath));
             }
+          }
+          else {
+            relDestinationPath = path.join(destinationPath, path.basename(sourcePath));
           }
           if (isDirectory && destinationFileName) {
             throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Cannot specify destination file name when moving a directory');
           }
 
-          if (UserDTOUtils.isDirectoryPathAvailable(fileDestinationPath, req.session['user'].permissions) === false) {
+          if (UserDTOUtils.isDirectoryPathAvailable(relDestinationPath, req.session['user'].permissions) === false) {
             throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Destination path is not available for user');
           }
 
-          const fullDestinationPath = path.join(ProjectPath.ImageFolder, fileDestinationPath);
+          const fullDestinationPath = path.join(ProjectPath.ImageFolder, relDestinationPath);
 
-          if (force === false) {
+          if (force === false && isFile) {
             await fsp.access(fullDestinationPath).then(
-              () => { throw new ErrorDTO(ErrorCodes.FILE_EXISTS_ERROR, 'File already exists at destination: ' + fileDestinationPath); },
+              () => { throw new ErrorDTO(ErrorCodes.FILE_EXISTS_ERROR, 'File already exists at destination: ' + relDestinationPath); },
               () => { /* File does not exist, proceed with write */ }
             );
           }
@@ -484,10 +487,9 @@ export class GalleryMWs {
           if (UserDTOUtils.isDirectoryPathAvailable(targetPath, req.session['user'].permissions) === false) {
             throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'File path is not available for user');
           }
-
           const fullTargetPath = path.join(ProjectPath.ImageFolder, targetPath);
-          try { await fsp.unlink(fullTargetPath); }
-          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error deleting file: ' + e.toString()); }
+          try { await fsp.rm(fullTargetPath, { recursive: true }); }
+          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error deleting directory: ' + e.toString()); }
         }
         catch (e) {
           if (e instanceof ErrorDTO) {

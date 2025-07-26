@@ -97,7 +97,6 @@ img.loading{
 }
 
 .selector {
-  /*animation: fadeout .3s forwards;*/
   background-color: transparent;
   color: white;
   position: absolute;
@@ -107,11 +106,6 @@ img.loading{
   width: 30px;
   border-radius: 50%;
   border: transparent;
-  /*transition: all .3s ease-out;
-  -moz-transition: all .3s ease-out;
-  -webkit-transition: all .3s ease-out;
-  -o-transition: all .3s ease-out;
-  -ms-transition: all .3s ease-out;*/
 }
 
 .info {

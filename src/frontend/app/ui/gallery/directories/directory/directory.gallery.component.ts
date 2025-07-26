@@ -1,4 +1,4 @@
-import {Component, Input, OnDestroy, OnInit} from '@angular/core';
+import {Component, HostBinding, Input, OnDestroy, OnInit} from '@angular/core';
 import {DomSanitizer, SafeStyle} from '@angular/platform-browser';
 import {SubDirectoryDTO} from '../../../../../../common/entities/DirectoryDTO';
 import {RouterLink} from '@angular/router';
@@ -7,6 +7,7 @@ import {Media} from '../../Media';
 import {Thumbnail, ThumbnailManagerService,} from '../../thumbnailManager.service';
 import {QueryService} from '../../../../model/query.service';
 import {CoverPhotoDTO} from '../../../../../../common/entities/PhotoDTO';
+import { GalleryFileActionsService } from '../../file-actions/file-actions.service';
 
 @Component({
   selector: 'app-gallery-directory',
@@ -19,10 +20,15 @@ export class GalleryDirectoryComponent implements OnInit, OnDestroy {
   @Input() size: number;
   thumbnail: Thumbnail = null;
 
+  selectorVisibleTimer: number = null;
+  selectorVisible = false;
+  overSelector = false;
+
   constructor(
       private thumbnailService: ThumbnailManagerService,
       private sanitizer: DomSanitizer,
-      public queryService: QueryService
+      public queryService: QueryService,
+      private fileActionsService: GalleryFileActionsService
   ) {
   }
 
@@ -62,6 +68,52 @@ export class GalleryDirectoryComponent implements OnInit, OnDestroy {
           new Media(this.SamplePhoto, this.size, this.size)
       );
     }
+  }
+
+  @HostBinding('style.scale')
+  get hostScale(): string {
+    return this.selected() ? 'var(--zoomed-scale)' : '100%';
+  }
+
+  mouseOver(): void {
+    if (this.selectorVisibleTimer != null) {
+      clearTimeout(this.selectorVisibleTimer);
+      this.selectorVisibleTimer = null;
+    }
+    this.selectorVisible = true;
+  }
+
+  mouseOut(): void {
+    if (this.overSelector) return;
+    if (this.selectorVisibleTimer != null) {
+      clearTimeout(this.selectorVisibleTimer);
+    }
+    this.selectorVisibleTimer = window.setTimeout((): void => {
+      this.selectorVisibleTimer = null;
+      this.selectorVisible = false;
+    }, 100);
+  }
+
+  selected(): boolean {
+    return this.fileActionsService.pathIsSelected(this.getDirectoryPath());
+  }
+
+  toggleSelected(event: MouseEvent): void {
+    event.stopPropagation();
+    this.fileActionsService.toggleSelectedPath(this.getDirectoryPath());
+  }
+
+  mouseOverSelector(): void {
+    if (this.selectorVisibleTimer != null) {
+      clearTimeout(this.selectorVisibleTimer);
+      this.selectorVisibleTimer = null;
+    }
+    this.selectorVisible = true;
+    this.overSelector = true;
+  }
+
+  mouseOutSelector(): void {
+    this.overSelector = false;
   }
 }
 

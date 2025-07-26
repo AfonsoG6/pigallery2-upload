@@ -1,9 +1,10 @@
 :host {
+  --zoomed-scale: 98%;
   transition: scale .3s ease-out;
 }
 
 :host:hover {
-  scale: 98%;
+  scale: var(--zoomed-scale) !important;
 }
 
 a {
@@ -64,4 +65,16 @@ a:hover .photo-container {
 .directory-name {
   width: 180px;
   white-space: normal;
+}
+
+.selector {
+  background-color: transparent;
+  color: white;
+  position: absolute;
+  margin: 5px;
+  padding: 0;
+  height: 30px;
+  width: 30px;
+  border-radius: 50%;
+  border: transparent;
 }

@@ -1,22 +1,23 @@
-<a class="button btn btn-secondary"
-   [routerLink]="['/gallery', getDirectoryPath()]"
-   [queryParams]="queryService.getParams()"
-   style="display: inline-block;">
+<button class="selector" *ngIf="selectorVisible || selected()" style="z-index: 1;" (click)="toggleSelected($event)"
+  [attr.aria-pressed]="selected()" type="button">
+  <ng-icon name="ionCheckmarkCircle"
+    [style.color]="selected() ? 'var(--bs-primary-text-emphasis)' : 'var(--bs-white)'"
+    [style.opacity]="(selected() || overSelector) ? 1 : 0.7" (mouseover)="mouseOverSelector()"
+    (mouseout)="mouseOutSelector()" style="--ng-icon__size: 100%;"></ng-icon>
+</button>
+
+<a class="button btn btn-secondary" [routerLink]="['/gallery', getDirectoryPath()]"
+  [queryParams]="queryService.getParams()" (mouseover)="mouseOver()" (mouseout)="mouseOut()"
+  style="display: inline-block;">
 
 
-  <div class="photo-container rounded overflow-hidden"
-       [style.width.px]="size"
-       [style.height.px]="size">
-    <div class="photo"
-         *ngIf="thumbnail && thumbnail.Available"
-         [style.background-image]="getSanitizedThUrl()"></div>
+  <div class="photo-container rounded overflow-hidden" [style.width.px]="size" [style.height.px]="size">
+    <div class="photo" *ngIf="thumbnail && thumbnail.Available" [style.background-image]="getSanitizedThUrl()"></div>
 
-    <app-icon *ngIf="!thumbnail || !thumbnail.Available"  class="no-image"></app-icon>
+    <app-icon *ngIf="!thumbnail || !thumbnail.Available" class="no-image"></app-icon>
   </div>
   <!--Info box -->
   <div class="info rounded-bottom">
     <div class="directory-name">{{directory.name}}</div>
-
   </div>
 </a>
-
