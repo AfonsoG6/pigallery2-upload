@@ -38,12 +38,12 @@ describe('UserService', (): void => {
           networkService: NetworkService
       ): Promise<void> => {
         spyOn(networkService, 'postJson');
-        const credential = new LoginCredential('name', 'pass');
-        await userService.login(credential);
+        const overthewireCredential = new LoginCredential('name', 'pass').getToSend();
+        await userService.login(overthewireCredential);
         expect(networkService.postJson).toHaveBeenCalled();
         expect((networkService.postJson as any).calls.argsFor(0)).toEqual([
           '/user/login',
-          {loginCredential: credential},
+          {loginCredential: overthewireCredential},
         ]);
       }
   ));

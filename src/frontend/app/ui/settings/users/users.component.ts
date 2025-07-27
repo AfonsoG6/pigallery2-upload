@@ -8,6 +8,7 @@ import {Utils} from '../../../../../common/Utils';
 import {ErrorCodes, ErrorDTO} from '../../../../../common/entities/Error';
 import {UsersSettingsService} from './users.service';
 import {SettingsService} from '../settings.service';
+import { LoginCredential } from '../../../../../common/entities/LoginCredential';
 
 @Component({
   selector: 'app-settings-users',
@@ -70,8 +71,10 @@ export class UsersComponent implements OnInit {
 
   async addNewUser(): Promise<void> {
     try {
-      this.addDefaultPermissions(this.newUser)
-      await this.userSettings.createUser(this.newUser);
+      const newUserCopy: UserDTO = Utils.clone(this.newUser);
+      this.addDefaultPermissions(newUserCopy);
+      newUserCopy.password = LoginCredential.cryptPasswordFrontend(newUserCopy.name, newUserCopy.password);
+      await this.userSettings.createUser(newUserCopy);
       await this.getUsersList();
       this.childModal.hide();
     } catch (e) {
@@ -84,8 +87,9 @@ export class UsersComponent implements OnInit {
   }
 
   async updateUser(user: UserDTO): Promise<void> {
-    this.addDefaultPermissions(user);
-    await this.userSettings.updateUser(user);
+    const userCopy: UserDTO = Utils.clone(user);
+    this.addDefaultPermissions(userCopy);
+    await this.userSettings.updateUser(userCopy);
     await this.getUsersList();
     this.childModal.hide();
   }

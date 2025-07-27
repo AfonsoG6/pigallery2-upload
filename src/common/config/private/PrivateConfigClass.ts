@@ -44,7 +44,8 @@ const isTesting = process.env['NODE_ENV'] == true || ['afterEach', 'after', 'bef
       // encrypt password and save back to the config
       if (uc.password) {
         if (!uc.encryptedPassword) {
-          uc.encryptedPassword = PasswordHelper.cryptPassword(uc.password);
+          const overthewirePassword = PasswordHelper.cryptPasswordFrontend(uc.name, uc.password);
+          uc.encryptedPassword = PasswordHelper.cryptPasswordBackend(overthewirePassword);
         }
         uc.password = '';
         changed = true;

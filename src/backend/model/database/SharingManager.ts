@@ -64,7 +64,7 @@ export class SharingManager {
     await SharingManager.removeExpiredLink();
     const connection = await SQLConnection.getConnection();
     if (sharing.password) {
-      sharing.password = PasswordHelper.cryptPassword(sharing.password);
+      sharing.password = PasswordHelper.cryptPasswordBackend(sharing.password);
     }
     return connection.getRepository(SharingEntity).save(sharing);
   }
@@ -90,7 +90,7 @@ export class SharingManager {
     if (inSharing.password == null) {
       sharing.password = null;
     } else {
-      sharing.password = PasswordHelper.cryptPassword(inSharing.password);
+      sharing.password = PasswordHelper.cryptPasswordBackend(inSharing.password);
     }
     sharing.includeSubfolders = inSharing.includeSubfolders;
     sharing.expires = inSharing.expires;

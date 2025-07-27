@@ -100,7 +100,8 @@ describe('Typeorm integration', () => {
     const conn = await SQLConnection.getConnection();
     const a = new UserEntity();
     a.name = 'migrated admin';
-    a.password = PasswordHelper.cryptPassword('Test admin');
+    const overthewirePassword = PasswordHelper.cryptPasswordFrontend(a.name, 'Test admin');
+    a.password = PasswordHelper.cryptPasswordBackend(overthewirePassword);
     a.role = UserRoles.Admin;
     await conn.getRepository(UserEntity).save(a);
 
@@ -139,7 +140,8 @@ describe('Typeorm integration', () => {
     const userRepository = conn.getRepository(UserEntity);
     const a = new UserEntity();
     a.name = 'test';
-    a.password = PasswordHelper.cryptPassword('test');
+    const overthewirePassword = PasswordHelper.cryptPasswordFrontend(a.name, 'test');
+    a.password = PasswordHelper.cryptPasswordBackend(overthewirePassword);
     a.role = UserRoles.Admin;
     await userRepository.save(a);
     expect((await userRepository.find()).length).to.equal(1);

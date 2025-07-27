@@ -70,7 +70,8 @@ export class AuthenticationService {
   }
 
   public async login(credential: LoginCredential): Promise<UserDTO> {
-    const user = await this.userService.login(credential);
+    const overthewireCredential = credential.getToSend();
+    const user = await this.userService.login(overthewireCredential);
     this.user.next(user);
     return user;
   }

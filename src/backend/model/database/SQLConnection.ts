@@ -128,7 +128,8 @@ export class SQLConnection {
     if (admins.length === 0 && devs.length === 0) {
       const a = new UserEntity();
       a.name = 'admin';
-      a.password = PasswordHelper.cryptPassword('admin');
+      const overthewirePassword = PasswordHelper.cryptPasswordFrontend(a.name, 'admin');
+      a.password = PasswordHelper.cryptPasswordBackend(overthewirePassword);
       a.role = UserRoles.Admin;
       await userRepository.save(a);
     }

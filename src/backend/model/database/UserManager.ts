@@ -26,7 +26,7 @@ export class UserManager {
 
   public async createUser(user: UserDTO): Promise<UserEntity> {
     const connection = await SQLConnection.getConnection();
-    user.password = PasswordHelper.cryptPassword(user.password);
+    user.password = PasswordHelper.cryptPasswordBackend(user.password);
     return connection.getRepository(UserEntity).save(user);
   }
 
