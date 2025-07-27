@@ -140,7 +140,7 @@ export class SQLConnection {
     });
     if (
       defAdmin &&
-      PasswordHelper.comparePassword('admin', defAdmin.password)
+      PasswordHelper.comparePassword(PasswordHelper.cryptPasswordFrontend('admin', 'admin'), defAdmin.password)
     ) {
       NotificationManager.error(
         'Using default admin user!',

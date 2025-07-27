@@ -299,7 +299,7 @@ export class GalleryRouter {
 
         // specific part
         raw({type: 'multipart/form-data', limit: Config.Upload.maxFileSizeMb + 'mb'}),
-        GalleryMWs.parseAndCreateFiles,
+        GalleryMWs.uploadFiles,
         ServerTimingMWs.addServerTiming,
         RenderingMWs.renderResult
     );

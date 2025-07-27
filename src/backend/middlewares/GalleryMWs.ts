@@ -507,7 +507,7 @@ export class GalleryMWs {
     return next();
   }
 
-  public static async parseAndCreateFiles(
+  public static async uploadFiles(
     req: Request,
     res: Response,
     next: NextFunction
