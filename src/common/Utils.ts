@@ -241,7 +241,7 @@ export class Utils {
       return creationDate;
     }
   }
-  
+
   static isLeapYear(year: number) {
     return (0 == year % 4) && (0 != year % 100) || (0 == year % 400)
   }
@@ -301,7 +301,9 @@ export class Utils {
   public static canonizePath(path: string): string {
     path = path
       .replace(new RegExp('\\\\', 'g'), '/')
-      .replace(new RegExp('/+', 'g'), '/');
+      .replace(new RegExp('//+', 'g'), '/')
+      .replace(new RegExp('^(\\./)+|(/\\.)+$', 'g'), '')
+      .replace(new RegExp('/(\\./)+', 'g'), '/');
     if (path !== "/" && path.startsWith('/')) {
       path = path.substring(1);
     }

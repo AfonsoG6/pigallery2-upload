@@ -24,7 +24,6 @@ export const UserDTOUtils = {
     if (permissions == null) {
       return true;
     }
-    permissions = permissions.map((p) => Utils.canonizePath(p));
     path = Utils.canonizePath(path);
     if (path.match(/(^\.{2}\/|\/\.{2}\/|\/\.{2}$|^\.{2}$)/)) {
       // Path traversal not allowed
@@ -34,28 +33,18 @@ export const UserDTOUtils = {
       return true;
     }
     for (const permission of permissions) {
-      const permissionRegex = new RegExp("^" +
-        permission
-        .replace("*", ".*")
-        .replace("/", "\\/")
-        + "$"
-      );
+      const processedPermission = Utils.canonizePath(permission)
+        .replace("**+", "<<ANY_PATH_SEQUENCE>>")
+        .replace("*", "<<ANY_DIRECTORY_OR_FILE>>")
+      let permRegex = "^" + processedPermission.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "$";
+      permRegex = permRegex
+        .replace("/<<ANY_PATH_SEQUENCE>>$", "(/<<ANY_PATH_SEQUENCE>>)?$")
+        .replace("/<<ANY_DIRECTORY_OR_FILE>>$", "(/<<ANY_DIRECTORY_OR_FILE>>)?$")
+        .replace("<<ANY_PATH_SEQUENCE>>", "[^\\:*?\"<>|]+")
+        .replace("<<ANY_DIRECTORY_OR_FILE>>", "[^\\:*?\"<>|/]+");
+      const permissionRegex = new RegExp(permRegex);
       if (permissionRegex.test(path)) {
-        console.log(`Path "${path}" matches permission "${permission}"`);
         return true;
-      }
-      if (permission.endsWith("/*")) {
-        const permissionBaseDirRegex = new RegExp("^" +
-          permission
-          .substring(0, permission.length - 2)
-          .replace("*", ".*")
-          .replace("/", "\\/")
-          + "$"
-        );
-        if (permissionBaseDirRegex.test(path)) {
-          console.log(`Path "${path}" matches base directory permission "${permission}"`);
-          return true;
-        }
       }
     }
     return false;
