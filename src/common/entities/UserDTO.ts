@@ -14,9 +14,10 @@ export interface UserDTO {
   name: string;
   password: string;
   role: UserRoles;
+  permissions: string[];
   csrfToken?: string;
   usedSharingKey?: string;
-  permissions: string[]; // user can only see these permissions. if ends with *, its recursive
+  unixUser?: string;
 }
 
 export const UserDTOUtils = {
@@ -34,15 +35,16 @@ export const UserDTOUtils = {
     }
     for (const permission of permissions) {
       const processedPermission = Utils.canonizePath(permission)
-        .replace("**+", "<<ANY_PATH_SEQUENCE>>")
+        .replace(/\*\*+/, "<<ANY_PATH_SEQUENCE>>")
         .replace("*", "<<ANY_DIRECTORY_OR_FILE>>")
-      let permRegex = "^" + processedPermission.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "$";
+      let permRegex = "^" + processedPermission.replace(/[.*+?^${}()|[\]\\]/g, (match) => `\\${match}`) + "$";
       permRegex = permRegex
         .replace("/<<ANY_PATH_SEQUENCE>>$", "(/<<ANY_PATH_SEQUENCE>>)?$")
         .replace("/<<ANY_DIRECTORY_OR_FILE>>$", "(/<<ANY_DIRECTORY_OR_FILE>>)?$")
         .replace("<<ANY_PATH_SEQUENCE>>", "[^\\:*?\"<>|]+")
         .replace("<<ANY_DIRECTORY_OR_FILE>>", "[^\\:*?\"<>|/]+");
       const permissionRegex = new RegExp(permRegex);
+      console.log(`Checking path: ${path} against permission regex: ${permissionRegex}`);
       if (permissionRegex.test(path)) {
         return true;
       }

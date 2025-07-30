@@ -310,7 +310,7 @@ export class Utils {
     if (path !== "/" && path.endsWith('/')) {
       path = path.substring(0, path.length - 1);
     }
-    if (path === '') {
+    if (path === '' || path === '.') {
       path = '/';
     }
     return path;

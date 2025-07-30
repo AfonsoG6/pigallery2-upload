@@ -68,20 +68,19 @@ export class UserMWs {
         typeof req.params.id === 'undefined' ||
         typeof req.body === 'undefined' ||
         typeof req.body.newRole === 'undefined' ||
-        typeof req.body.newPermissions === 'undefined'
+        typeof req.body.newPermissions === 'undefined' ||
+        typeof req.body.newUnixUser === 'undefined'
     ) {
       return next();
     }
 
     try {
-      await ObjectManagers.getInstance().UserManager.changeRole(
-          parseInt(req.params.id, 10),
-          req.body.newRole
-      );
-      await ObjectManagers.getInstance().UserManager.changePermissions(
-          parseInt(req.params.id, 10),
-          req.body.newPermissions
-      );
+      const id = parseInt(req.params.id, 10);
+      await ObjectManagers.getInstance().UserManager.updateUser(id, {
+        role: req.body.newRole,
+        permissions: req.body.newPermissions,
+        unixUser: req.body.newUnixUser
+      });
       return next();
     } catch (err) {
       return next(new ErrorDTO(ErrorCodes.GENERAL_ERROR, null, err));

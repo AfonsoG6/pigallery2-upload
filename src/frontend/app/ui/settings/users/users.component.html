@@ -16,6 +16,7 @@
       <th i18n>Name</th>
       <th i18n>Role</th>
       <th i18n>Permissions (CSV)</th>
+      <th i18n>Unix User</th>
       <th></th>
       <th></th>
     </tr>
@@ -35,13 +36,22 @@
       </td>
       <!-- Input for user permissions (a string[] with directories that the user can access)-->
       <td *ngIf="canModifyUser(user)">
-        <input type="text" class="form-control permission-input" placeholder="Example: /dir1;/dir2"
+        <input type="text" class="form-control edit-input" placeholder="Example: /dir1;/dir2"
                [value]="getPermissionsString(user)"
                (change)="onPermissionsChange(user, $event)">
       </td>
       <td *ngIf="!canModifyUser(user)">
-        <span class="permission-input">
+        <span class="edit-input">
           {{getPermissionsString(user)}}
+        </span>
+      </td>
+      <td *ngIf="canModifyUser(user)">
+        <input type="text" class="form-control" i18n-placeholder placeholder="Unix User"
+               [(ngModel)]="user.unixUser" name="unixUser">
+      </td>
+      <td *ngIf="!canModifyUser(user)">
+        <span class="edit-input">
+          {{user.unixUser}}
         </span>
       </td>
       <td>
@@ -89,9 +99,11 @@
             <option *ngFor="let repository of userRoles" [value]="repository.key">{{repository.value}}
             </option>
           </select>
-          <input type="text" class="form-control permission-input" placeholder="Permissions (Example: /dir1;/dir2)"
+          <input type="text" class="form-control edit-input" placeholder="Permissions (Example: /dir1;/dir2)"
                [value]="getPermissionsString(newUser)"
                (change)="onPermissionsChange(newUser, $event)">
+          <input type="text" class="form-control edit-input" placeholder="Unix User (Default: root)"
+                 [(ngModel)]="newUser.unixUser" name="unixUser">
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" (click)="userModal.hide()" i18n>Close</button>

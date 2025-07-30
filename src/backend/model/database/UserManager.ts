@@ -51,4 +51,20 @@ export class UserManager {
     user.permissions = newPermissions;
     return userRepository.save(user);
   }
+
+  public async changeUnixUser(id: number, newUnixUser: string): Promise<UserEntity> {
+    const connection = await SQLConnection.getConnection();
+    const userRepository = connection.getRepository(UserEntity);
+    const user = await userRepository.findOneBy({id});
+    user.unixUser = newUnixUser;
+    return userRepository.save(user);
+  }
+
+  public async updateUser(id: number, userData: Partial<UserDTO>): Promise<UserEntity> {
+    const connection = await SQLConnection.getConnection();
+    const userRepository = connection.getRepository(UserEntity);
+    const user = await userRepository.findOneBy({id});
+    Object.assign(user, userData);
+    return userRepository.save(user);
+  }
 }

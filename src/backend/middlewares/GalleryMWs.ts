@@ -8,7 +8,7 @@ import {ObjectManagers} from '../model/ObjectManagers';
 import {ContentWrapper} from '../../common/entities/ConentWrapper';
 import {ProjectPath} from '../ProjectPath';
 import {Config} from '../../common/config/private/Config';
-import {UserDTOUtils} from '../../common/entities/UserDTO';
+import {UserDTO, UserDTOUtils} from '../../common/entities/UserDTO';
 import {MediaDTO, MediaDTOUtils} from '../../common/entities/MediaDTO';
 import {QueryParams} from '../../common/QueryParams';
 import {VideoProcessing} from '../model/fileaccess/fileprocessing/VideoProcessing';
@@ -397,6 +397,7 @@ export class GalleryMWs {
   ): Promise<void> {
     const result = new FileActionResultDTO();
     try {
+      const user: UserDTO = req.session['user'];
       const parts = GalleryMWs.parsePartsFromMultipartForm(req);
       const sourcePaths: string[] = GalleryMWs.getParameterFromParts(parts, 'sourcePath');
       const destinationPath: string = GalleryMWs.getParameterFromParts(parts, 'destinationPath', false)[0];
@@ -409,8 +410,7 @@ export class GalleryMWs {
 
       for (const sourcePath of sourcePaths) {
         try {
-
-          if (UserDTOUtils.isDirectoryPathAvailable(sourcePath, req.session['user'].permissions) === false) {
+          if (UserDTOUtils.isDirectoryPathAvailable(sourcePath, user.permissions) === false) {
             throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Source path is not available for user');
           }
 
@@ -436,7 +436,7 @@ export class GalleryMWs {
             throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Cannot specify destination file name when moving a directory');
           }
 
-          if (UserDTOUtils.isDirectoryPathAvailable(relDestinationPath, req.session['user'].permissions) === false) {
+          if (UserDTOUtils.isDirectoryPathAvailable(relDestinationPath, user.permissions) === false) {
             throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Destination path is not available for user');
           }
 
@@ -453,8 +453,6 @@ export class GalleryMWs {
           catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error creating destination directory: ' + e.toString()); }
           try { await fsp.rename(fullSourcePath, fullDestinationPath); }
           catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error moving file: ' + e.toString()); }
-          try { await fsp.chmod(fullDestinationPath, 0o666); }
-          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file permissions: ' + e.toString()); }
         }
         catch (e) {
           if (e instanceof ErrorDTO) {
@@ -517,6 +515,7 @@ export class GalleryMWs {
     }
 
     try {
+      const user = req.session['user'];
       const parts = GalleryMWs.parsePartsFromMultipartForm(req);
       const autoOrganize: boolean = GalleryMWs.getParameterFromParts(parts, "autoOrganize", true, /true|false/)[0] === "true";
       const force: boolean = GalleryMWs.getParameterFromParts(parts, "force", true, /true|false/)[0] === "true";
@@ -560,7 +559,15 @@ export class GalleryMWs {
         }
         try { await fsp.writeFile(filePath, file.data); }
         catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error writing file to disk: ' + e.toString()); }
-        try { await fsp.chmod(filePath, 0o666); }
+        if (user.unixUser) {
+          try {
+            const uid: number = parseInt(spawnSync('id', ['-u', user.unixUser]).stdout.toString().trim());
+            const gid: number = parseInt(spawnSync('id', ['-g', user.unixUser]).stdout.toString().trim());
+            await fsp.chown(filePath, uid, gid);
+          }
+          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file owner: ' + e.toString()); }
+        }
+        try { await fsp.chmod(filePath, user.unixUser ? 0o600 : 0o666); }
         catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file permissions: ' + e.toString()); }
         try { await fsp.utimes(filePath, new Date(lastModified), new Date(lastModified)); }
         catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file last modified time: ' + e.toString()); }

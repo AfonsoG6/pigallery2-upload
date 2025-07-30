@@ -27,6 +27,7 @@ export class UsersSettingsService {
     return this.networkService.postJson('/user/' + user.id, {
       newRole: user.role,
       newPermissions: user.permissions,
+      newUnixUser: user.unixUser
     });
   }
 }
