@@ -130,6 +130,7 @@ export class SQLConnection {
       a.name = 'admin';
       const overthewirePassword = PasswordHelper.cryptPasswordFrontend(a.name, 'admin');
       a.password = PasswordHelper.cryptPasswordBackend(overthewirePassword);
+      a.permissions = ["/**"]
       a.role = UserRoles.Admin;
       await userRepository.save(a);
     }
