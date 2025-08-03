@@ -116,6 +116,7 @@ export class SQLConnection {
           const a = new UserEntity();
           a.name = uc.name;
           a.password = uc.encryptedPassword;
+          a.permissions = ["/**"];
           a.role = uc.role;
           await userRepository.save(a);
         }
