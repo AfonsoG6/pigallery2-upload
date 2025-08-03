@@ -147,6 +147,6 @@ export class UsersComponent implements OnInit {
     if (user.role === UserRoles.Admin) {
       return ["/**"];
     }
-    return ["/", `${user.name}/*`];
+    return ["/", `${user.name}/**`];
   }
 }
