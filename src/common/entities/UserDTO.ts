@@ -44,7 +44,6 @@ export const UserDTOUtils = {
         .replace("<<ANY_PATH_SEQUENCE>>", "[^\\:*?\"<>|]+")
         .replace("<<ANY_DIRECTORY_OR_FILE>>", "[^\\:*?\"<>|/]+");
       const permissionRegex = new RegExp(permRegex);
-      console.log(`Checking path: ${path} against permission regex: ${permissionRegex}`);
       if (permissionRegex.test(path)) {
         return true;
       }

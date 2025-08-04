@@ -589,10 +589,10 @@ export class GalleryMWs {
       return next();
     }
 
-    if (!req.params || !req.params['uploadPath']) {
+    if (!req.body || !req.body.uploadPath) {
       return next(new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Missing parameter: uploadPath'));
     }
-    const uploadPath = req.params['uploadPath'] as string;
+    const uploadPath = req.body.uploadPath as string;
     if (UserDTOUtils.isDirectoryPathAvailable(uploadPath, req.session['user'].permissions) === false) {
       return next(new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Upload path is not available for user'));
     }
