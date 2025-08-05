@@ -39,7 +39,7 @@
 
 .list-group {
   margin-top: 1rem;
-  max-height: 50vh;
+  max-height: 40vh;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -49,6 +49,7 @@
   justify-content: space-between;
   align-items: center;
   overflow: hidden;
+  min-height: fit-content;
 }
 
 .list-group-item span {

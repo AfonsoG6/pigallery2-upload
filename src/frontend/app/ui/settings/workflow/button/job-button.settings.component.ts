@@ -77,6 +77,8 @@ export class JobButtonComponent {
       class: 'modal-lg',
     });
     document.body.style.paddingRight = '0px';
+    // Manually add "overflow-y: scroll" back to the document body which for some reason is removed.
+    document.body.style.overflowY = 'scroll';
   }
 
 
