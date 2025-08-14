@@ -9,6 +9,7 @@ import { ContentWrapper } from '../../../../../common/entities/ConentWrapper';
 import { AuthenticationService } from '../../../model/network/authentication.service';
 import { ErrorCodes } from '../../../../../common/entities/Error';
 import { GalleryCacheService } from '../cache.gallery.service';
+import { LoadingBarService } from '@ngx-loading-bar/core'; // added
 
 enum State {
   STANDBY = 0,
@@ -41,12 +42,17 @@ export class GalleryUploadComponent implements OnInit {
   invalidPathError = false;
   contentSubscription: Subscription = null;
 
+  // loading bars: one global ref and one per-file ref
+  private globalUploadRef = this.loadingBar.useRef('global-loading-bar');
+  private fileRefs: { [refName: string]: ReturnType<LoadingBarService['useRef']> } = {};
+
   constructor(
     private uploadService: UploadService,
     private notification: NotificationService,
     private modalService: BsModalService,
     private contentLoaderService: ContentLoaderService,
     private authService: AuthenticationService,
+    private loadingBar: LoadingBarService, // added
   ) {}
 
   ngOnInit(): void {
@@ -108,15 +114,36 @@ export class GalleryUploadComponent implements OnInit {
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
       this.files[file.name] = file;
+      // ensure a ref exists for this file
+      this.ensureFileRef(file.name);
     }
-  }
-
-  removeFile(fileName: string): void {
-    delete this.files[fileName];
   }
 
   private plural(): string {
     return Object.keys(this.files).length > 1 ? 's' : '';
+  }
+
+  removeFile(fileName: string): void {
+    delete this.files[fileName];
+    // best-effort cleanup of the file ref
+    const refName = this.getFileRefName(fileName);
+    if (this.fileRefs[refName]) {
+      try { this.fileRefs[refName].complete(); } catch { /* ignore error */ }
+      delete this.fileRefs[refName];
+    }
+  }
+
+  // helper to generate consistent ref names for files
+  getFileRefName(fileName: string): string {
+    return `upload-file-${fileName}`;
+  }
+
+  private ensureFileRef(fileName: string): ReturnType<LoadingBarService['useRef']> {
+    const refName = this.getFileRefName(fileName);
+    if (!this.fileRefs[refName]) {
+      this.fileRefs[refName] = this.loadingBar.useRef(refName);
+    }
+    return this.fileRefs[refName];
   }
 
   async uploadFiles(): Promise<void> {
@@ -126,10 +153,24 @@ export class GalleryUploadComponent implements OnInit {
     }
 
     this.state = State.UPLOADING;
+
+    const total = Object.keys(this.files).length;
+    let completed = 0;
+
+    // initialize global upload bar
+    try {
+      this.globalUploadRef.set(0);
+    } catch { /* ignore error */ }
+
     for (const fileName in this.files) {
       if (this.successfulFiles.includes(fileName)) continue;
 
+      const fileRef = this.ensureFileRef(fileName);
       try {
+        // start per-file bar
+        fileRef.set(0);
+        fileRef.start();
+
         await this.uploadService.uploadFile(this.files[fileName], this.uploadDir, this.autoOrganize, this.force);
         this.successfulFiles.push(fileName);
         if (this.failedFiles.includes(fileName)) {
@@ -141,17 +182,30 @@ export class GalleryUploadComponent implements OnInit {
           this.notification.error('Invalid upload path: ' + this.uploadDir);
           this.invalidPathError = true;
           this.state = State.STANDBY;
+          // complete per-file and global bars to current progress
+          try { fileRef.complete(); } catch { /* ignore error */ }
+          try {
+            this.globalUploadRef.set((completed / total) * 100);
+            this.globalUploadRef.complete();
+          } catch { /* ignore error */ }
           return;
         }
         if (error.code == ErrorCodes.FILE_EXISTS_ERROR) {
           this.notification.error(`File${this.plural()} already exists: ${fileName}`);
-          continue;
         }
+        // continue loop even on error
+      } finally {
+        // finish per-file bar and update global progress
+        try { fileRef.complete(); } catch { /* ignore error */ }
+        completed++;
+        try { this.globalUploadRef.set((completed / total) * 100); } catch { /* ignore error */ }
       }
     }
+
     if (this.successfulFiles.length === 0 && this.failedFiles.length > 0) {
       this.notification.error(`Failed to upload file${this.plural()}`);
       this.state = State.STANDBY;
+      try { this.globalUploadRef.complete(); } catch { /* ignore error */ }
       return;
     }
 
@@ -166,6 +220,7 @@ export class GalleryUploadComponent implements OnInit {
           this.notification.error('Invalid upload path: ' + this.uploadDir);
           this.invalidPathError = true;
           this.state = State.STANDBY;
+          try { this.globalUploadRef.complete(); } catch { /* ignore error */ }
           return;
         }
         else {
@@ -178,6 +233,9 @@ export class GalleryUploadComponent implements OnInit {
       this.state = State.FINISHED;
       this.refreshParentDirectory();
     }
+
+    // ensure global bar completes at the end
+    try { this.globalUploadRef.complete(); } catch { /* ignore error */ }
   }
 
   openModal(template: TemplateRef<unknown>): void {
@@ -205,6 +263,8 @@ export class GalleryUploadComponent implements OnInit {
     this.force = false;
     this.uploadDir = this.authService.user.value.name;
     this.invalidPathError = false;
+    // cleanup file refs
+    this.fileRefs = {};
   }
 
   private async refreshParentDirectory(): Promise<void> {

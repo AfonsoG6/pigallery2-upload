@@ -16,7 +16,7 @@ export class UploadService {
     formData.append("file", file);
 
     try {
-      return await this.networkService.postMultipartFormData('/gallery/upload/', formData);
+      return await this.networkService.postMultipartFormData('/gallery/upload/', formData, false);
     } catch (error) {
       console.error('Error uploading files:', error);
       throw error;

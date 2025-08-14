@@ -1,4 +1,4 @@
-<ngx-loading-bar [includeSpinner]="false" color="#337ab7" height="3px"></ngx-loading-bar>
+<ngx-loading-bar [includeSpinner]="false" color="#337ab7" height="3px" [ref]="'global-loading-bar'"></ngx-loading-bar>
 <div #navContainer class="navbar-container auto-hide-navbar"
      [class.navbar-keep-top]="navbarKeepTop || fixNavbarOnTop"
      [class.hide-navbar]="!navbarKeepTop && shouldHideNavbar"

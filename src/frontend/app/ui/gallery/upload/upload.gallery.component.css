@@ -50,6 +50,7 @@
   align-items: center;
   overflow: hidden;
   min-height: fit-content;
+  border: unset;
 }
 
 .list-group-item span {

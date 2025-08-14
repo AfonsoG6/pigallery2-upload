@@ -1,7 +1,5 @@
-<button id="uploadButton" class="nav-link btn  btn-link"
-        style="white-space:nowrap"
-        *ngIf="!dropDownItem"
-        type="button" [disabled]="!enabled" (click)="openModal(uploadModal)">
+<button id="uploadButton" class="nav-link btn  btn-link" style="white-space:nowrap" *ngIf="!dropDownItem" type="button"
+  [disabled]="!enabled" (click)="openModal(uploadModal)">
   <ng-icon name="ionCloudUploadOutline" class="me-1"></ng-icon>
   <ng-container i18n>Upload</ng-container>
 </button>
@@ -22,26 +20,40 @@
     <form #uploadForm="ngForm" class="form-horizontal">
       <div class="row mb-3">
         <div class="col-12">
-          <div class="drop-zone"
-                [class.dragover]="state === 0 && isDragOver"
-                [class.disabled]="state !== 0"
-                (drop)="onFileDropped($event)"
-                (dragover)="onDragOver($event)"
-                (dragleave)="onDragLeave()"
-                (click)="triggerFileInput()">
+          <div class="drop-zone" [class.dragover]="state === 0 && isDragOver" [class.disabled]="state !== 0"
+            (drop)="onFileDropped($event)" (dragover)="onDragOver($event)" (dragleave)="onDragLeave()"
+            (click)="triggerFileInput()">
             <ng-icon name="ionCloudUploadOutline" class="me-1"></ng-icon>
             <p i18n>Drag and drop files here, or click to select files</p>
             <input id="fileInput" type="file" class="file-input" (change)="onFileSelected($event)" multiple>
           </div>
           <ul class="list-group">
-            <li class="list-group-item" *ngFor="let file of files | keyvalue">
-              <span>{{ file.key }}</span>
-              <ng-icon *ngIf="successfulFiles.includes(file.key)" id="resultIcon" name="ionCheckmarkCircleOutline" class="text-success ms-2"></ng-icon>
-              <ng-icon *ngIf="failedFiles.includes(file.key)" id="resultIcon" name="ionCloseCircleOutline" class="text-danger ms-2"></ng-icon>
-              <ng-container *ngIf="state === 0">
-                <button type="button" class="btn btn-danger btn-sm float-end" (click)="removeFile(file.key)" i18n>Remove</button>
-              </ng-container>
-            </li>
+            <div *ngFor="let file of files | keyvalue">
+              <li class="list-group-item">
+                <span>{{ file.key }}</span>
+                <ng-icon *ngIf="successfulFiles.includes(file.key)" id="resultIcon" name="ionCheckmarkCircleOutline"
+                  class="text-success ms-2"></ng-icon>
+                <ng-icon *ngIf="failedFiles.includes(file.key)" id="resultIcon" name="ionCloseCircleOutline"
+                  class="text-danger ms-2"></ng-icon>
+                <ng-container *ngIf="state === 0">
+                  <button type="button" class="btn btn-danger btn-sm float-end" (click)="removeFile(file.key)"
+                    i18n>Remove</button>
+                </ng-container>
+              </li>
+              <!-- live per-file loading bar (only while uploading this file) -->
+              <div class="mb-2"
+                *ngIf="state === 1 && !successfulFiles.includes(file.key) && !failedFiles.includes(file.key)">
+                <ngx-loading-bar class="inline-loading-bar" [includeSpinner]="false" [fixed]="false" color="#337ab7"
+                  height="3px" [ref]="getFileRefName(file.key)">
+                </ngx-loading-bar>
+              </div>
+
+              <!-- finished static bar (kept visible, colored success/failure) -->
+              <div class="mb-1" *ngIf="successfulFiles.includes(file.key) || failedFiles.includes(file.key)"
+                [ngClass]="successfulFiles.includes(file.key) ? 'text-success' : 'text-danger'">
+                <div class="file-progress-static"></div>
+              </div>
+            </div>
           </ul>
         </div>
       </div>
@@ -51,13 +63,8 @@
         </div>
         <div class="col-8">
           <div class="form-check form-switch">
-            <input class="form-check-input"
-                   type="checkbox"
-                   role="switch"
-                   id="autoOrganize"
-                   (change)="onChangeAutoOrganize($event)"
-                   [checked]="autoOrganize"
-                   [disabled]="state !== 0">
+            <input class="form-check-input" type="checkbox" role="switch" id="autoOrganize"
+              (change)="onChangeAutoOrganize($event)" [checked]="autoOrganize" [disabled]="state !== 0">
           </div>
         </div>
       </div>
@@ -67,15 +74,11 @@
         </div>
         <div class="col-8 flex-container">
           <div style="flex-grow:1">
-            <input type="text"
-                  id="uploadDir"
-                  class="form-control"
-                  style="display: flex;"
-                  (change)="setUploadDir($event)"
-                  [ngModel]="uploadDir"
-                  [disabled]="state !== 0">
+            <input type="text" id="uploadDir" class="form-control" style="display: flex;"
+              (change)="setUploadDir($event)" [ngModel]="uploadDir" [disabled]="state !== 0">
           </div>
-          <ng-icon *ngIf="invalidPathError" id="resultIcon" name="ionCloseCircleOutline" class="text-danger ms-2 me-2"></ng-icon>
+          <ng-icon *ngIf="invalidPathError" id="resultIcon" name="ionCloseCircleOutline"
+            class="text-danger ms-2 me-2"></ng-icon>
         </div>
       </div>
       <div class="row">
@@ -84,13 +87,8 @@
         </div>
         <div class="col-8">
           <div class="form-check form-switch">
-            <input class="form-check-input"
-                   type="checkbox"
-                   role="switch"
-                   id="force"
-                   (change)="onChangeForce($event)"
-                   [checked]="force"
-                   [disabled]="state !== 0">
+            <input class="form-check-input" type="checkbox" role="switch" id="force" (change)="onChangeForce($event)"
+              [checked]="force" [disabled]="state !== 0">
           </div>
         </div>
       </div>

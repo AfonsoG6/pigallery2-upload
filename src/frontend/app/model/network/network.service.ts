@@ -157,27 +157,30 @@ export class NetworkService {
 
   public postMultipartFormData<T>(
     url: string,
-    formData: FormData
+    formData: FormData,
+    manageLoadingBar = true
   ): Promise<T> {
-    return this.callMultipartFormData('post', url, formData);
+    return this.callMultipartFormData('post', url, formData, manageLoadingBar);
   }
 
   public putMultipartFormData<T>(
     url: string,
-    formData: FormData
+    formData: FormData,
+    manageLoadingBar = true
   ): Promise<T> {
-    return this.callMultipartFormData('put', url, formData);
+    return this.callMultipartFormData('put', url, formData, manageLoadingBar);
   }
 
   private callMultipartFormData<T>(
     method: 'post' | 'put',
     url: string,
-    formData: FormData
+    formData: FormData,
+    manageLoadingBar = true
   ): Promise<T> {
-    this.loadingBarService.useRef().start();
+    if (manageLoadingBar) this.loadingBarService.useRef().start();
 
     const process = (res: HttpResponse<Message<T>>): T => {
-      this.loadingBarService.useRef().complete();
+      if (manageLoadingBar) this.loadingBarService.useRef().complete();
       const msg = res.body;
       if (res.headers.has(CustomHeaders.dataVersion)) {
         this.versionService.onNewVersion(
@@ -194,7 +197,7 @@ export class NetworkService {
     };
 
     const err = <T>(error: T) => {
-      this.loadingBarService.useRef().complete();
+      if (manageLoadingBar) this.loadingBarService.useRef().complete();
       return this.handleError(error);
     };
 
