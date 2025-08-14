@@ -17,7 +17,6 @@ import {LocationLookupException} from '../exceptions/LocationLookupException';
 import {SupportedFormats} from '../../common/SupportedFormats';
 import {ServerTime} from './ServerTimingMWs';
 import {SortByTypes} from '../../common/entities/SortingMethods';
-import * as multipart from 'parse-multipart-data';
 import { spawnSync } from 'child_process';
 import { FileActionResultDTO } from '../../common/entities/FileActionResultDTO';
 
@@ -346,48 +345,37 @@ export class GalleryMWs {
     }
   }
 
-  private static parsePartsFromMultipartForm(req: Request): any[] {
-    if (!req.headers['content-type']) {
-      throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No content type header found');
+  private static getStringBodyField(req: Request, name: string, required = true, allowedRegex = /.*/): string {
+    const val = (req.body?.[name] ?? '') as string;
+    const str = String(val).trim();
+    if (!str) {
+      if (!required) return '';
+      throw new ErrorDTO(ErrorCodes.INPUT_ERROR, `Missing parameter: ${name}`);
     }
-
-    if (req.headers['content-type'].indexOf('multipart/form-data') === -1) {
-      throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Content type header is not multipart/form-data');
+    const full = new RegExp(`^${allowedRegex.source}$`);
+    if (!full.test(str)) {
+      throw new ErrorDTO(ErrorCodes.INPUT_ERROR, `Invalid value for parameter: ${name}`);
     }
-    const boundary = multipart.getBoundary(req.headers['content-type']);
-    if (!boundary) {
-      throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No boundary found in content type header');
-    }
-
-    return multipart.parse(req.body, boundary);
+    return str;
   }
 
-  private static getParameterFromParts(parts: any[], parameterName: string, required = true, allowedRegex = /.*/): string[] {
-    const parameterParts = parts.filter(
-      (p): boolean => p.name === parameterName && p.data && p.data.byteLength > 0
-    );
-    if (!parameterParts || parameterParts.length === 0) {
-      if (!required) return [""];
-      throw new ErrorDTO(
-        ErrorCodes.INPUT_ERROR,
-        `Missing parameter: ${parameterName}`,
-        null
-      );
+  private static getArrayBodyField(req: Request, name: string, required = true): string[] {
+    const val = (req.body?.[name] ?? (required ? null : [])) as string | string[] | null;
+    if (val == null) {
+      if (!required) return [];
+      throw new ErrorDTO(ErrorCodes.INPUT_ERROR, `Missing parameter: ${name}`);
     }
+    return (Array.isArray(val) ? val : [val]).map(v => String(v).trim()).filter(v => v.length > 0);
+  }
 
-    allowedRegex = new RegExp("^" + allowedRegex.source + "$");
-    const invalidParts = parameterParts.filter(
-      (p): boolean => !allowedRegex.test(p.data.toString().trim())
-    );
-    if (invalidParts.length > 0) {
-      throw new ErrorDTO(
-        ErrorCodes.INPUT_ERROR,
-        `Invalid value for parameter: ${parameterName}`,
-        null
-      );
-    }
+  private static getBooleanBodyField(req: Request, name: string, required = true): boolean {
+    const str = this.getStringBodyField(req, name, required, /true|false/);
+    return String(str).toLowerCase() === 'true';
+  }
 
-    return parameterParts.map((p): string => p.data.toString().trim());
+  private static async safeUnlink(filePath: string): Promise<void> {
+    if (!filePath) return;
+    try { await fsp.unlink(filePath); } catch { /* ignore */ }
   }
 
   public static async moveFiles(
@@ -398,11 +386,11 @@ export class GalleryMWs {
     const result = new FileActionResultDTO();
     try {
       const user: UserDTO = req.session['user'];
-      const parts = GalleryMWs.parsePartsFromMultipartForm(req);
-      const sourcePaths: string[] = GalleryMWs.getParameterFromParts(parts, 'sourcePath');
-      const destinationPath: string = GalleryMWs.getParameterFromParts(parts, 'destinationPath', false)[0];
-      const destinationFileName: string = GalleryMWs.getParameterFromParts(parts, 'destinationFileName', false, /[^/\\:*?"<>|]+/)[0];
-      const force: boolean = GalleryMWs.getParameterFromParts(parts, 'force', true, /true|false/)[0] === 'true';
+
+      const sourcePaths: string[] = GalleryMWs.getArrayBodyField(req, 'sourcePath');
+      const destinationPath: string = GalleryMWs.getStringBodyField(req, 'destinationPath', false);
+      const destinationFileName: string = GalleryMWs.getStringBodyField(req, 'destinationFileName', false, /[^/\\:*?"<>|]+/);
+      const force: boolean = GalleryMWs.getBooleanBodyField(req, 'force');
 
       if (sourcePaths.length > 1 && destinationFileName) {
         throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Cannot specify destination file name when moving multiple files');
@@ -477,8 +465,7 @@ export class GalleryMWs {
   ): Promise<void> {
     const result = new FileActionResultDTO();
     try {
-      const parts = GalleryMWs.parsePartsFromMultipartForm(req);
-      const targetPaths: string[] = GalleryMWs.getParameterFromParts(parts, 'targetPath');
+      const targetPaths: string[] = GalleryMWs.getArrayBodyField(req, 'targetPath');
 
       for (const targetPath of targetPaths) {
         try {
@@ -514,68 +501,75 @@ export class GalleryMWs {
       return next();
     }
 
+    const file = (req as any).file as (Express.Multer.File | undefined);
+    const fileRejected = (req as any)._fileRejected as string | undefined;
+    const conflict = (req as any)._uploadConflict as boolean | undefined;
+    const conflictOriginal = (req as any)._uploadConflictOriginal as string | undefined;
+
     try {
-      const user = req.session['user'];
-      const parts = GalleryMWs.parsePartsFromMultipartForm(req);
-      const autoOrganize: boolean = GalleryMWs.getParameterFromParts(parts, "autoOrganize", true, /true|false/)[0] === "true";
-      const force: boolean = GalleryMWs.getParameterFromParts(parts, "force", true, /true|false/)[0] === "true";
-      let uploadPath: string = GalleryMWs.getParameterFromParts(parts, 'uploadPath')[0];
-      const lastModified: number = parseInt(GalleryMWs.getParameterFromParts(parts, 'lastModified', true, /\d+/)[0], 10);
-      const files = parts.filter(
-        (p): boolean => (
-          p.name === "file" &&
-          p.filename &&
-          (SupportedFormats.WithDots.Photos.includes(path.extname(p.filename).toLowerCase()) ||
-          SupportedFormats.WithDots.Videos.includes(path.extname(p.filename).toLowerCase())) &&
-          p.data &&
-          p.data.byteLength > 0 &&
-          p.data.byteLength < Config.Upload.maxFileSizeMb * 1000 * 1000
-        )
-      );
-      if (files.length === 0) {
+      // Validate fields
+      const autoOrganize: boolean = GalleryMWs.getBooleanBodyField(req, "autoOrganize");
+      const force: boolean = GalleryMWs.getBooleanBodyField(req, "force");
+      const uploadPath: string = GalleryMWs.getStringBodyField(req, 'uploadPath');
+      const lastModified: number = parseInt(GalleryMWs.getStringBodyField(req, 'lastModified', true, /\d+/), 10);
+
+      // Field-level errors from multer
+      if (fileRejected === 'UNSUPPORTED_TYPE') {
+        throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No valid files found in upload request');
+      }
+      if (!file) {
         throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No valid files found in upload request');
       }
 
+      // Permission check on logical upload path
       if (UserDTOUtils.isDirectoryPathAvailable(uploadPath, req.session['user'].permissions) === false) {
+        await GalleryMWs.safeUnlink(file.path);
         throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Upload path is not available for user');
       }
 
-      uploadPath = path.join(
-        autoOrganize ? Config.Upload.defaultUploadPath : Config.Media.folder,
-        uploadPath
-      );
-
-      try { await fsp.mkdir(uploadPath, {recursive: true}); }
-      catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error creating target directory for upload: ' + e.toString());}
-
-      for (const file of files) {
-        const filePath = path.join(uploadPath, file.filename);
-        if (force === false) {
-          const relativePath = path.relative(ProjectPath.ImageFolder, filePath);
-          await fsp.access(filePath).then(
-            () => { throw new ErrorDTO(ErrorCodes.FILE_EXISTS_ERROR, 'File already exists: ' + relativePath); },
-            () => { /* File does not exist, proceed with write */ }
-          );
-        }
-        try { await fsp.writeFile(filePath, file.data); }
-        catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error writing file to disk: ' + e.toString()); }
-        if (user.unixUser) {
-          try {
-            const uid: number = parseInt(spawnSync('id', ['-u', user.unixUser]).stdout.toString().trim());
-            const gid: number = parseInt(spawnSync('id', ['-g', user.unixUser]).stdout.toString().trim());
-            await fsp.chown(filePath, uid, gid);
-          }
-          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file owner: ' + e.toString()); }
-        }
-        try { await fsp.chmod(filePath, user.unixUser ? 0o600 : 0o666); }
-        catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file permissions: ' + e.toString()); }
-        try { await fsp.utimes(filePath, new Date(lastModified), new Date(lastModified)); }
-        catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file last modified time: ' + e.toString()); }
+      // File-level validations mirrored from previous behavior
+      const ext = path.extname(file.originalname).toLowerCase();
+      const isAllowed =
+        SupportedFormats.WithDots.Photos.includes(ext) ||
+        SupportedFormats.WithDots.Videos.includes(ext);
+      if (!isAllowed) {
+        await GalleryMWs.safeUnlink(file.path);
+        throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No valid files found in upload request');
       }
-    }
-    catch (e) {
+
+      // Handle conflict created by storage when force=false
+      if (conflict && !force) {
+        // Delete the temp/conflict file and respond with FILE_EXISTS_ERROR
+        await GalleryMWs.safeUnlink(file.path);
+        const baseDir = autoOrganize ? Config.Upload.defaultUploadPath : Config.Media.folder;
+        const existingPath = path.join(baseDir, uploadPath, conflictOriginal || file.originalname);
+        const relativeExisting = path.relative(ProjectPath.ImageFolder, existingPath);
+        throw new ErrorDTO(ErrorCodes.FILE_EXISTS_ERROR, 'File already exists: ' + relativeExisting);
+      }
+
+      // Post-write ownership/permissions/timestamps
+      const user: UserDTO = req.session['user'];
+      if (user.unixUser) {
+        try {
+          const uid: number = parseInt(spawnSync('id', ['-u', user.unixUser]).stdout.toString().trim());
+          const gid: number = parseInt(spawnSync('id', ['-g', user.unixUser]).stdout.toString().trim());
+          await fsp.chown(file.path, uid, gid);
+        } catch (e) {
+          await GalleryMWs.safeUnlink(file.path);
+          throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file owner: ' + e.toString());
+        }
+      }
+
+      try { await fsp.chmod(file.path, user.unixUser ? 0o600 : 0o666); }
+      catch (e) { await GalleryMWs.safeUnlink(file.path); throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file permissions: ' + e.toString()); }
+
+      try { await fsp.utimes(file.path, new Date(lastModified), new Date(lastModified)); }
+      catch (e) { await GalleryMWs.safeUnlink(file.path); throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file last modified time: ' + e.toString()); }
+
+    } catch (e) {
       return next(e);
     }
+
     req.resultPipe = "ok";
     return next();
   }

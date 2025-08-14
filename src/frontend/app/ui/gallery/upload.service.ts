@@ -7,11 +7,13 @@ export class UploadService {
 
   public async uploadFile(file: File, uploadPath: string, autoOrganize: boolean, force: boolean): Promise<void> {
     const formData = new FormData();
-    formData.append("file", file);
-    formData.append("lastModified", String(file.lastModified));
+    // Put fields first so multer can read them before the file arrives
     formData.append("uploadPath", uploadPath);
     formData.append("autoOrganize", String(autoOrganize));
     formData.append("force", String(force));
+    formData.append("lastModified", String(file.lastModified));
+    // File last, so storage callbacks receive populated req.body
+    formData.append("file", file);
 
     try {
       return await this.networkService.postMultipartFormData('/gallery/upload/', formData);
