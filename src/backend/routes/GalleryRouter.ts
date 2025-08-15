@@ -407,6 +407,14 @@ export class GalleryRouter {
     });
 
     const fileFilter: multer.Options['fileFilter'] = (req, file, cb) => {
+      // Pre-write permission check for uploadPath
+      const uploadPath = String(req.body?.uploadPath ?? '');
+      if (!uploadPath || !UserDTOUtils.isDirectoryPathAvailable(uploadPath, req.session['user'].permissions)) {
+        (req as any)._fileRejected = 'INVALID_PATH';
+        return cb(null, false); // reject without writing the file
+      }
+
+      // Type allow-list
       const ext = path.extname(file.originalname).toLowerCase();
       const isAllowed =
         SupportedFormats.WithDots.Photos.includes(ext) ||

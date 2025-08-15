@@ -514,6 +514,9 @@ export class GalleryMWs {
       const lastModified: number = parseInt(GalleryMWs.getStringBodyField(req, 'lastModified', true, /\d+/), 10);
 
       // Field-level errors from multer
+      if (fileRejected === 'INVALID_PATH') {
+        throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Upload path is not available for user');
+      }
       if (fileRejected === 'UNSUPPORTED_TYPE') {
         throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No valid files found in upload request');
       }
@@ -521,7 +524,7 @@ export class GalleryMWs {
         throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No valid files found in upload request');
       }
 
-      // Permission check on logical upload path
+      // Permission check on logical upload path (defense in depth)
       if (UserDTOUtils.isDirectoryPathAvailable(uploadPath, req.session['user'].permissions) === false) {
         await GalleryMWs.safeUnlink(file.path);
         throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Upload path is not available for user');
