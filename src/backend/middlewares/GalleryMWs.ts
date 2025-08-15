@@ -525,7 +525,7 @@ export class GalleryMWs {
       }
 
       // Permission check on logical upload path (defense in depth)
-      if (UserDTOUtils.isDirectoryPathAvailable(uploadPath, req.session['user'].permissions) === false) {
+      if (UserDTOUtils.isDirectoryPathAvailable(path.join(uploadPath, file.originalname), req.session['user'].permissions) === false) {
         await GalleryMWs.safeUnlink(file.path);
         throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Upload path is not available for user');
       }

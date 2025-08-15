@@ -408,8 +408,8 @@ export class GalleryRouter {
 
     const fileFilter: multer.Options['fileFilter'] = (req, file, cb) => {
       // Pre-write permission check for uploadPath
-      const uploadPath = String(req.body?.uploadPath ?? '');
-      if (!uploadPath || !UserDTOUtils.isDirectoryPathAvailable(uploadPath, req.session['user'].permissions)) {
+      const fullUploadPath = path.join(String(req.body?.uploadPath ?? ''), file.originalname);
+      if (!fullUploadPath || !UserDTOUtils.isDirectoryPathAvailable(fullUploadPath, req.session['user'].permissions)) {
         (req as any)._fileRejected = 'INVALID_PATH';
         return cb(null, false); // reject without writing the file
       }
