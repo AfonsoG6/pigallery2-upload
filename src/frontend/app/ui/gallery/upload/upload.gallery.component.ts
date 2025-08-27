@@ -178,7 +178,7 @@ export class GalleryUploadComponent implements OnInit {
         }
       } catch (error) {
         this.failedFiles.push(fileName);
-        if (error.code == ErrorCodes.INVALID_PATH_ERROR) {
+        if (error.code == ErrorCodes.FILE_INVALID_PATH_ERROR) {
           this.notification.error('Invalid upload path: ' + this.uploadDir);
           this.invalidPathError = true;
           this.state = State.STANDBY;
@@ -190,7 +190,7 @@ export class GalleryUploadComponent implements OnInit {
           } catch { /* ignore error */ }
           return;
         }
-        if (error.code == ErrorCodes.FILE_EXISTS_ERROR) {
+        if (error.code == ErrorCodes.FILE_CONFLICT_PATH_ERROR) {
           this.notification.error(`File${this.plural()} already exists: ${fileName}`);
         }
         // continue loop even on error
@@ -216,7 +216,7 @@ export class GalleryUploadComponent implements OnInit {
         this.notification.success(`File${this.plural()} organized successfully.`);
       }
       catch (error) {
-        if (error.code == ErrorCodes.INVALID_PATH_ERROR) {
+        if (error.code == ErrorCodes.FILE_INVALID_PATH_ERROR) {
           this.notification.error('Invalid upload path: ' + this.uploadDir);
           this.invalidPathError = true;
           this.state = State.STANDBY;

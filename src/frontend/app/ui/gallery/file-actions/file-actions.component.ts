@@ -139,10 +139,10 @@ export class GalleryFileActionsComponent {
   }
 
   private notifyError(errorDTO: ErrorDTO): void {
-    if (errorDTO.code === ErrorCodes.INVALID_PATH_ERROR) {
+    if (errorDTO.code === ErrorCodes.FILE_INVALID_PATH_ERROR) {
       this.notification.error('Invalid destination path: ' + this.destinationPath);
       this.invalidPathError = true;
-    } else if (errorDTO.code === ErrorCodes.FILE_EXISTS_ERROR) {
+    } else if (errorDTO.code === ErrorCodes.FILE_CONFLICT_PATH_ERROR) {
       this.notification.error(`File already exists at destination: ${this.destinationPath}`);
       this.invalidPathError = false;
     } else {

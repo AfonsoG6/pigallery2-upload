@@ -19,6 +19,17 @@ import {ServerTime} from './ServerTimingMWs';
 import {SortByTypes} from '../../common/entities/SortingMethods';
 import { spawnSync } from 'child_process';
 import { FileActionResultDTO } from '../../common/entities/FileActionResultDTO';
+import * as multer from 'multer';
+import { DiskManager } from '../model/fileaccess/DiskManager';
+
+class UploadRequest extends Request {
+  public _fileRejected: boolean;
+  public _fileRejectedReason: ErrorCodes | undefined;
+  public _conflict: boolean | undefined;
+  public _conflictOriginalName: string | undefined;
+  public _conflictAuxName: string | undefined;
+  public _conflictUploadedName: string | undefined;
+}
 
 export class GalleryMWs {
   @ServerTime('1.db', 'List Directory')
@@ -345,9 +356,10 @@ export class GalleryMWs {
     }
   }
 
+  // Accept value from body first, then query as a fallback.
   private static getStringBodyField(req: Request, name: string, required = true, allowedRegex = /.*/): string {
-    const val = (req.body?.[name] ?? '') as string;
-    const str = String(val).trim();
+    const val = (typeof req.body?.[name] !== 'undefined') ? req.body?.[name] : req.query?.[name];
+    const str = String(val ?? '').trim();
     if (!str) {
       if (!required) return '';
       throw new ErrorDTO(ErrorCodes.INPUT_ERROR, `Missing parameter: ${name}`);
@@ -359,7 +371,17 @@ export class GalleryMWs {
     return str;
   }
 
-  private static getArrayBodyField(req: Request, name: string, required = true): string[] {
+  private static getBooleanBodyField(req: Request, name: string, required = false): boolean {
+    const str = this.getStringBodyField(req, name, required, /true|false/);
+    return String(str).toLowerCase() === 'true';
+  }
+
+  private static getIntegerBodyField(req: Request, name: string, required = false): number {
+    const str = this.getStringBodyField(req, name, required, /\d+/);
+    return parseInt(str, 10);
+  }
+
+  private static getArrayBodyField(req: Request, name: string, required = false): string[] {
     const val = (req.body?.[name] ?? (required ? null : [])) as string | string[] | null;
     if (val == null) {
       if (!required) return [];
@@ -368,14 +390,14 @@ export class GalleryMWs {
     return (Array.isArray(val) ? val : [val]).map(v => String(v).trim()).filter(v => v.length > 0);
   }
 
-  private static getBooleanBodyField(req: Request, name: string, required = true): boolean {
-    const str = this.getStringBodyField(req, name, required, /true|false/);
-    return String(str).toLowerCase() === 'true';
-  }
-
   private static async safeUnlink(filePath: string): Promise<void> {
     if (!filePath) return;
     try { await fsp.unlink(filePath); } catch { /* ignore */ }
+  }
+
+  private static async safeRename(filePath: string, newPath: string): Promise<void> {
+    if (!filePath || !newPath) return;
+    try { await fsp.rename(filePath, newPath); } catch { /* ignore */ }
   }
 
   public static async moveFiles(
@@ -383,14 +405,20 @@ export class GalleryMWs {
     res: Response,
     next: NextFunction
   ): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  multer().none()(req, res, (err?: any) => {
+      if (err) {
+        return next(new ErrorDTO(ErrorCodes.INPUT_ERROR));
+      }
+    });
     const result = new FileActionResultDTO();
     try {
       const user: UserDTO = req.session['user'];
 
-      const sourcePaths: string[] = GalleryMWs.getArrayBodyField(req, 'sourcePath');
-      const destinationPath: string = GalleryMWs.getStringBodyField(req, 'destinationPath', false);
+      const sourcePaths: string[] = GalleryMWs.getArrayBodyField(req, 'sourcePath', true);
+      const destinationPath: string = GalleryMWs.getStringBodyField(req, 'destinationPath', true);
       const destinationFileName: string = GalleryMWs.getStringBodyField(req, 'destinationFileName', false, /[^/\\:*?"<>|]+/);
-      const force: boolean = GalleryMWs.getBooleanBodyField(req, 'force');
+      const force: boolean = GalleryMWs.getBooleanBodyField(req, 'force', false);
 
       if (sourcePaths.length > 1 && destinationFileName) {
         throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Cannot specify destination file name when moving multiple files');
@@ -399,7 +427,7 @@ export class GalleryMWs {
       for (const sourcePath of sourcePaths) {
         try {
           if (UserDTOUtils.isDirectoryPathAvailable(sourcePath, user.permissions) === false) {
-            throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Source path is not available for user');
+            throw new ErrorDTO(ErrorCodes.FILE_INVALID_PATH_ERROR, 'Source path is not available for user');
           }
 
           const fullSourcePath = path.join(ProjectPath.ImageFolder, sourcePath);
@@ -425,14 +453,14 @@ export class GalleryMWs {
           }
 
           if (UserDTOUtils.isDirectoryPathAvailable(relDestinationPath, user.permissions) === false) {
-            throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Destination path is not available for user');
+            throw new ErrorDTO(ErrorCodes.FILE_INVALID_PATH_ERROR, 'Destination path is not available for user');
           }
 
           const fullDestinationPath = path.join(ProjectPath.ImageFolder, relDestinationPath);
 
           if (force === false && isFile) {
             await fsp.access(fullDestinationPath).then(
-              () => { throw new ErrorDTO(ErrorCodes.FILE_EXISTS_ERROR, 'File already exists at destination: ' + relDestinationPath); },
+              () => { throw new ErrorDTO(ErrorCodes.FILE_CONFLICT_PATH_ERROR, 'File already exists at destination: ' + relDestinationPath); },
               () => { /* File does not exist, proceed with write */ }
             );
           }
@@ -463,6 +491,12 @@ export class GalleryMWs {
     res: Response,
     next: NextFunction
   ): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  multer().none()(req, res, (err?: any) => {
+      if (err) {
+        return next(new ErrorDTO(ErrorCodes.INPUT_ERROR));
+      }
+    });
     const result = new FileActionResultDTO();
     try {
       const targetPaths: string[] = GalleryMWs.getArrayBodyField(req, 'targetPath');
@@ -470,7 +504,7 @@ export class GalleryMWs {
       for (const targetPath of targetPaths) {
         try {
           if (UserDTOUtils.isDirectoryPathAvailable(targetPath, req.session['user'].permissions) === false) {
-            throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'File path is not available for user');
+            throw new ErrorDTO(ErrorCodes.FILE_INVALID_PATH_ERROR, 'File path is not available for user');
           }
           const fullTargetPath = path.join(ProjectPath.ImageFolder, targetPath);
           try { await fsp.rm(fullTargetPath, { recursive: true }); }
@@ -492,87 +526,238 @@ export class GalleryMWs {
     return next();
   }
 
+  private static getAbsoluteUploadDirectoryPath(req: Request): string {
+  // Fallback to query params if body is not yet parsed by multer in certain callbacks
+  const uploadPath = GalleryMWs.getStringBodyField(req, 'uploadPath', true);
+  const autoOrganize = GalleryMWs.getBooleanBodyField(req, 'autoOrganize', false);
+    const baseDir = autoOrganize ? Config.Upload.defaultUploadPath : Config.Media.folder;
+    return path.join(baseDir, uploadPath);
+  }
+
+  private static getAbsoluteUploadFilePath(req: Request, file: Express.Multer.File): string {
+    const dir = GalleryMWs.getAbsoluteUploadDirectoryPath(req);
+    return path.join(dir, file.originalname);
+  }
+
+  private static getFileExtension(file: Express.Multer.File): string {
+    return path.extname(file.originalname).toLowerCase();
+  }
+
+  private static createUploadMulter(): multer.Multer {
+    const storage = multer.diskStorage({
+      destination: async (req, file, cb) => {
+        try {
+          const absUploadDirectoryPath = GalleryMWs.getAbsoluteUploadDirectoryPath(req);
+          await fsp.mkdir(absUploadDirectoryPath, {recursive: true});
+          cb(null, absUploadDirectoryPath);
+        } catch (err) {
+          cb(new Error(ErrorCodes.GENERAL_ERROR.toString()), null);
+        }
+      },
+      filename: async (req, file, cb) => {
+        const uploadRequest = (req as unknown) as UploadRequest;
+        const force = GalleryMWs.getBooleanBodyField(req, 'force', false);
+        const autoOrganize = GalleryMWs.getBooleanBodyField(req, 'autoOrganize', false);
+        const absUploadFilePath = GalleryMWs.getAbsoluteUploadFilePath(req, file);
+        if (!autoOrganize) {
+          await fsp.access(absUploadFilePath).then(() => {
+            if (force) {
+              uploadRequest._conflict = true;
+              const p = path.parse(file.originalname);
+              uploadRequest._conflictOriginalName = file.originalname;
+              uploadRequest._conflictAuxName = `${p.name}__conflict_aux__${Date.now()}${p.ext}`;
+              uploadRequest._conflictUploadedName = `${p.name}__conflict__${Date.now()}${p.ext}`;
+              cb(null, path.basename(uploadRequest._conflictUploadedName));
+            }
+          }).catch(() => { /* File does not exist, great */ });
+        }
+        cb(null, file.originalname);
+      }
+    });
+
+    const fileFilter: multer.Options['fileFilter'] = async (req, file, cb) => {
+      const uploadRequest = (req as unknown) as UploadRequest;
+      uploadRequest._fileRejected = false;
+
+      let force: boolean, autoOrganize: boolean, sha256: string, uploadPath: string;
+      try {
+        force = GalleryMWs.getBooleanBodyField(req, 'force', false);
+        autoOrganize = GalleryMWs.getBooleanBodyField(req, 'autoOrganize', false);
+        sha256 = GalleryMWs.getStringBodyField(req, 'sha256', false, /[a-f0-9]{64}/);
+        uploadPath = GalleryMWs.getStringBodyField(req, 'uploadPath', true);
+        GalleryMWs.getStringBodyField(req, 'lastModified', false, /\d+/);
+      }
+      catch (e) {
+        uploadRequest._fileRejected = true;
+        uploadRequest._fileRejectedReason = ErrorCodes.INPUT_ERROR;
+        return cb(null, false);
+      }
+
+      const absUploadDirectoryPath = GalleryMWs.getAbsoluteUploadDirectoryPath(req);
+      if (!absUploadDirectoryPath || !UserDTOUtils.isDirectoryPathAvailable(absUploadDirectoryPath, req.session['user'].permissions)) {
+        uploadRequest._fileRejected = true;
+        uploadRequest._fileRejectedReason = ErrorCodes.FILE_INVALID_PATH_ERROR;
+        return cb(null, false);
+      }
+
+      const absUploadFilePath = GalleryMWs.getAbsoluteUploadFilePath(req, file);
+      if (!autoOrganize) {
+        await fsp.access(absUploadFilePath).then(() => {
+          if (force) {
+            uploadRequest._conflict = true;
+          } else {
+            uploadRequest._fileRejected = true;
+            uploadRequest._fileRejectedReason = ErrorCodes.FILE_CONFLICT_PATH_ERROR;
+            return cb(null, false);
+          }
+        }).catch(() => { /* File does not exist, great */ });
+      }
+
+      if (!force) {
+        if (sha256) {
+          try {
+            const relNormalized = DiskManager.normalizeDirPath(uploadPath);
+            // DirectoryEntity.path has a trailing separator
+            const dirPath = path.join(path.dirname(relNormalized), path.sep);
+            const dirName = path.basename(relNormalized);
+
+            const gm = ObjectManagers.getInstance().GalleryManager;
+            const duplicateExists = autoOrganize
+              ? await gm.checkFileHashExistsInDirOrChildDirs(dirPath, dirName, sha256)
+              : await gm.checkFileHashExistsInDir(dirPath, dirName, sha256);
+
+            if (duplicateExists) {
+              uploadRequest._fileRejected = true;
+              uploadRequest._fileRejectedReason = ErrorCodes.FILE_CONFLICT_HASH_ERROR;
+              return cb(null, false);
+            }
+          } catch (e) {
+            // On DB errors, do not block upload here; let later stages handle issues
+          }
+        }
+      }
+
+      const ext = GalleryMWs.getFileExtension(file);
+      if (!(
+        SupportedFormats.WithDots.Photos.includes(ext) ||
+        SupportedFormats.WithDots.Videos.includes(ext) ||
+        SupportedFormats.WithDots.MetaFiles.includes(ext)
+      )) {
+        uploadRequest._fileRejected = true;
+        uploadRequest._fileRejectedReason = ErrorCodes.FILE_UNSUPPORTED_TYPE_ERROR;
+        return cb(null, false);
+      }
+      cb(null, true);
+    };
+
+    return multer({ storage, fileFilter });
+  }
+
+  // Run multer.single('file') as a Promise so we can await it
+  private static runMulterSingle(req: Request, res: Response): Promise<void> {
+    const upload = GalleryMWs.createUploadMulter();
+    return new Promise((resolve, reject) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      upload.single('file')(req, res, (err?: any) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+
   public static async uploadFiles(
     req: Request,
     res: Response,
     next: NextFunction
   ): Promise<void> {
     if (Config.Upload.enabled === false) {
-      return next();
+      return next(new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'File upload is not enabled'));
+    }
+    try {
+      await GalleryMWs.runMulterSingle(req, res);
+    } catch (err) {
+      const msg = (err as Error)?.message ?? ErrorCodes.GENERAL_ERROR.toString();
+      const errorCode = parseInt(msg, 10) || ErrorCodes.GENERAL_ERROR;
+      return next(new ErrorDTO(errorCode));
     }
 
-    const file = (req as any).file as (Express.Multer.File | undefined);
-    const fileRejected = (req as any)._fileRejected as string | undefined;
-    const conflict = (req as any)._uploadConflict as boolean | undefined;
-    const conflictOriginal = (req as any)._uploadConflictOriginal as string | undefined;
+    const uploadRequest = (req as unknown) as UploadRequest;
+
+    const file = req.file;
+    const fileRejected = uploadRequest._fileRejected;
+    const fileRejectedReason = uploadRequest._fileRejectedReason;
+    const conflict = uploadRequest._conflict;
+    let fileInAux = false;
+    let conflictOriginalPath: string = null;
+    let conflictAuxPath: string = null;
+    let conflictUploadedPath: string = null;
 
     try {
-      // Validate fields
-      const autoOrganize: boolean = GalleryMWs.getBooleanBodyField(req, "autoOrganize");
-      const force: boolean = GalleryMWs.getBooleanBodyField(req, "force");
-      const uploadPath: string = GalleryMWs.getStringBodyField(req, 'uploadPath');
-      const lastModified: number = parseInt(GalleryMWs.getStringBodyField(req, 'lastModified', true, /\d+/), 10);
+      const force: boolean = GalleryMWs.getBooleanBodyField(req, "force", false);
+      const lastModified: number = GalleryMWs.getIntegerBodyField(req, "lastModified", true);
 
       // Field-level errors from multer
-      if (fileRejected === 'INVALID_PATH') {
-        throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Upload path is not available for user');
-      }
-      if (fileRejected === 'UNSUPPORTED_TYPE') {
-        throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No valid files found in upload request');
+      if (fileRejected) {
+        throw new ErrorDTO(fileRejectedReason);
       }
       if (!file) {
-        throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No valid files found in upload request');
+        throw new ErrorDTO(ErrorCodes.INPUT_ERROR);
       }
 
-      // Permission check on logical upload path (defense in depth)
-      if (UserDTOUtils.isDirectoryPathAvailable(path.join(uploadPath, file.originalname), req.session['user'].permissions) === false) {
-        await GalleryMWs.safeUnlink(file.path);
-        throw new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Upload path is not available for user');
-      }
-
-      // File-level validations mirrored from previous behavior
-      const ext = path.extname(file.originalname).toLowerCase();
-      const isAllowed =
-        SupportedFormats.WithDots.Photos.includes(ext) ||
-        SupportedFormats.WithDots.Videos.includes(ext);
-      if (!isAllowed) {
-        await GalleryMWs.safeUnlink(file.path);
-        throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No valid files found in upload request');
-      }
-
-      // Handle conflict created by storage when force=false
-      if (conflict && !force) {
-        // Delete the temp/conflict file and respond with FILE_EXISTS_ERROR
-        await GalleryMWs.safeUnlink(file.path);
-        const baseDir = autoOrganize ? Config.Upload.defaultUploadPath : Config.Media.folder;
-        const existingPath = path.join(baseDir, uploadPath, conflictOriginal || file.originalname);
-        const relativeExisting = path.relative(ProjectPath.ImageFolder, existingPath);
-        throw new ErrorDTO(ErrorCodes.FILE_EXISTS_ERROR, 'File already exists: ' + relativeExisting);
+      if (conflict && force) {
+        conflictOriginalPath = path.join(file.destination, uploadRequest._conflictOriginalName);
+        conflictAuxPath = path.join(file.destination, uploadRequest._conflictAuxName);
+        conflictUploadedPath = path.join(file.destination, uploadRequest._conflictUploadedName);
+        try {
+          await fsp.rename(conflictOriginalPath, conflictAuxPath);
+          fileInAux = true;
+        } catch (e) {
+          throw new ErrorDTO(ErrorCodes.FILE_RENAME_FAILURE);
+        }
+        try {
+          await fsp.rename(conflictUploadedPath, conflictOriginalPath);
+        } catch (e) {
+          throw new ErrorDTO(ErrorCodes.FILE_RENAME_FAILURE);
+        }
       }
 
       // Post-write ownership/permissions/timestamps
       const user: UserDTO = req.session['user'];
-      if (user.unixUser) {
-        try {
-          const uid: number = parseInt(spawnSync('id', ['-u', user.unixUser]).stdout.toString().trim());
-          const gid: number = parseInt(spawnSync('id', ['-g', user.unixUser]).stdout.toString().trim());
-          await fsp.chown(file.path, uid, gid);
-        } catch (e) {
-          await GalleryMWs.safeUnlink(file.path);
-          throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file owner: ' + e.toString());
+      if (Config.Upload.enableChownChmod) {
+        if (user.unixUser) {
+          try {
+            const uid: number = parseInt(spawnSync('id', ['-u', user.unixUser]).stdout.toString().trim());
+            const gid: number = parseInt(spawnSync('id', ['-g', user.unixUser]).stdout.toString().trim());
+            await fsp.chown(file.path, uid, gid);
+          } catch (e) {
+            throw new ErrorDTO(ErrorCodes.FILE_CHOWN_FAILURE);
+          }
         }
+
+        try { await fsp.chmod(file.path, user.unixUser ? 0o600 : 0o666); }
+        catch (e) { throw new ErrorDTO(ErrorCodes.FILE_CHMOD_FAILURE); }
       }
 
-      try { await fsp.chmod(file.path, user.unixUser ? 0o600 : 0o666); }
-      catch (e) { await GalleryMWs.safeUnlink(file.path); throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file permissions: ' + e.toString()); }
-
       try { await fsp.utimes(file.path, new Date(lastModified), new Date(lastModified)); }
-      catch (e) { await GalleryMWs.safeUnlink(file.path); throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error setting file last modified time: ' + e.toString()); }
+      catch (e) { throw new ErrorDTO(ErrorCodes.FILE_UTIMES_FAILURE); }
 
     } catch (e) {
+      if (file) {
+        // Best effort: Attempt to delete the failed uploaded file to avoid building up garbage
+        await GalleryMWs.safeUnlink(file.path);
+      }
+      if (fileInAux) {
+        // Best effort: If the auxiliary file exists, try to restore it to its original name/path
+        await GalleryMWs.safeRename(conflictAuxPath, conflictOriginalPath);
+      }
       return next(e);
     }
 
+    // If everything went well, we can safely remove the auxiliary file and return
+    if (fileInAux) await GalleryMWs.safeUnlink(conflictAuxPath);
     req.resultPipe = "ok";
     return next();
   }
@@ -591,7 +776,7 @@ export class GalleryMWs {
     }
     const uploadPath = req.body.uploadPath as string;
     if (UserDTOUtils.isDirectoryPathAvailable(uploadPath, req.session['user'].permissions) === false) {
-      return next(new ErrorDTO(ErrorCodes.INVALID_PATH_ERROR, 'Upload path is not available for user'));
+      return next(new ErrorDTO(ErrorCodes.FILE_INVALID_PATH_ERROR, 'Upload path is not available for user'));
     }
 
     const sourcePath = path.join(

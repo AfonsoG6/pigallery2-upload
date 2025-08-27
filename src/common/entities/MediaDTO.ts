@@ -7,6 +7,7 @@ export interface MediaDTO extends FileDTO {
   id: number;
   name: string;
   directory: DirectoryPathDTO;
+  sha256?: string;
   metadata: MediaMetadata;
   missingThumbnails?: number;
 }

@@ -14,6 +14,7 @@ import {ObjectManagers} from '../ObjectManagers';
 import {DuplicatesDTO} from '../../../common/entities/DuplicatesDTO';
 import {ReIndexingSensitivity} from '../../../common/config/private/PrivateConfig';
 import { DiskManager } from '../fileaccess/DiskManager';
+import {FileEntity} from './enitites/FileEntity';
 
 const LOG_TAG = '[GalleryManager]';
 
@@ -379,4 +380,74 @@ export class GalleryManager {
 
     return dir;
   }
+
+  public async checkFileHashExistsInDir(directoryPath: string, directoryName: string, sha256: string): Promise<boolean> {
+    const connection = await SQLConnection.getConnection();
+
+    const dir = await this.getDirIdAndTime(connection, directoryName, directoryPath);
+    if (!dir || !dir.id) return false;
+
+    // Check MediaEntity for a matching hash within this directory
+    const media = await connection
+      .getRepository(MediaEntity)
+      .createQueryBuilder('media')
+      .where('media.directoryId = :dirId', { dirId: dir.id })
+      .andWhere('media.sha256 = :sha256', { sha256: sha256 })
+      .limit(1)
+      .getOne();
+
+    if (media) return true;
+
+    // Check FileEntity (meta files) for a matching hash within this directory
+    const file = await connection
+      .getRepository(FileEntity)
+      .createQueryBuilder('file')
+      .where('file.directoryId = :dirId', { dirId: dir.id })
+      .andWhere('file.sha256 = :sha256', { sha256: sha256 })
+      .limit(1)
+      .getOne();
+
+    if (file) return true;
+    return false;
+  }
+
+  public async checkFileHashExistsInDirOrChildDirs(directoryPath: string, directoryName: string, sha256: string): Promise<boolean> {
+    const connection = await SQLConnection.getConnection();
+
+    // Build the child path prefix (full path of current dir) to match all descendants
+    const childPathPrefix = DiskManager.pathFromParent({ path: directoryPath, name: directoryName });
+
+    const whereDirExpr = '(directory.path = :path AND directory.name = :name) OR directory.path LIKE :childPrefix';
+    const params = {
+      path: directoryPath,
+      name: directoryName,
+      childPrefix: `${childPathPrefix}%`,
+      sha256: sha256
+    };
+
+    // Check media first
+    const media = await connection
+      .getRepository(MediaEntity)
+      .createQueryBuilder('media')
+      .innerJoin('media.directory', 'directory')
+      .where(whereDirExpr, params)
+      .andWhere('media.sha256 = :sha256', params)
+      .limit(1)
+      .getOne();
+    if (media) return true;
+
+    // Then check meta files
+    const file = await connection
+      .getRepository(FileEntity)
+      .createQueryBuilder('file')
+      .innerJoin('file.directory', 'directory')
+      .where(whereDirExpr, params)
+      .andWhere('file.sha256 = :sha256', params)
+      .limit(1)
+      .getOne();
+
+    if (file) return true;
+    return false;
+  }
+
 }

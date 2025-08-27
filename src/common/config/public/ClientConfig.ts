@@ -285,17 +285,16 @@ export class ClientUploadConfig {
   })
   enabled: boolean = true;
 
+  // Enable/Disable chown and chmod
   @ConfigProperty({
-    type: 'unsignedInt',
     tags:
       {
-        name: $localize`Max file size`,
-        priority: ConfigPriority.advanced,
-        unit: 'MB'
-      },
-    description: $localize`Maximum file size that can be uploaded in MB.`
+        name: $localize`Enable chown/chmod`,
+        priority: ConfigPriority.advanced
+    },
+    description: $localize`Enables or disables chown/chmod execution on uploaded files.`
   })
-  maxFileSizeMb: number = 5000; // 5GB
+  enableChownChmod: boolean = false;
 
   @ConfigProperty({
     tags:

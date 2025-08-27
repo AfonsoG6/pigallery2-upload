@@ -19,4 +19,7 @@ export class FileEntity implements FileDTO {
     nullable: false,
   })
   directory: DirectoryEntity;
+
+  @Column({type: 'varchar', length: 64, nullable: true})
+  sha256?: string;
 }

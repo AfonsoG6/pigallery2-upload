@@ -1,4 +1,4 @@
-import {promises as fsp, Stats} from 'fs';
+import {promises as fsp, Stats, createReadStream, existsSync} from 'fs';
 import * as path from 'path';
 import {ParentDirectoryDTO, SubDirectoryDTO,} from '../../../common/entities/DirectoryDTO';
 import {PhotoDTO} from '../../../common/entities/PhotoDTO';
@@ -14,7 +14,8 @@ import {GPXProcessing} from './fileprocessing/GPXProcessing';
 import {MDFileDTO} from '../../../common/entities/MDFileDTO';
 import {MetadataLoader} from './MetadataLoader';
 import {NotificationManager} from '../NotifocationManager';
-import {ExtensionDecorator} from '../extension/ExtensionDecorator';
+import { ExtensionDecorator } from '../extension/ExtensionDecorator';
+import * as crypto from 'crypto';
 
 
 const LOG_TAG = '[DiskManager]';
@@ -194,6 +195,7 @@ export class DiskManager {
               settings.noMetadata === true
                 ? null
                 : await MetadataLoader.loadPhotoMetadata(fullFilePath),
+            sha256: await DiskManager.getFileSHA256(fullFilePath),
           } as PhotoDTO;
 
           if (!directory.cover) {
@@ -236,6 +238,7 @@ export class DiskManager {
               settings.noMetadata === true
                 ? null
                 : await MetadataLoader.loadVideoMetadata(fullFilePath),
+            sha256: await DiskManager.getFileSHA256(fullFilePath),
           } as VideoDTO);
         } catch (e) {
           Logger.warn(
@@ -259,6 +262,7 @@ export class DiskManager {
           directory.metaFile.push({
             name: file,
             directory: null,
+            sha256: await DiskManager.getFileSHA256(fullFilePath),
           } as FileDTO);
         } catch (e) {
           Logger.warn(
@@ -312,6 +316,40 @@ export class DiskManager {
     const extension = path.extname(fullPath).toLowerCase();
 
     return extension == '.md';
+  }
+
+  private static getFileSHA256(filePath: string): Promise<string | null> {
+    return new Promise((resolve): void => {
+      try {
+        // Ensure the file exists and is accessible
+        if (!existsSync(filePath)) {
+          resolve(null);
+          return;
+        }
+
+        const hash = crypto.createHash('sha256');
+        const stream = createReadStream(filePath, {highWaterMark: 4 * 1024 * 1024}); // 4MB chunk size
+
+        stream.on('data', (chunk: Buffer): void => {
+          hash.update(new Uint8Array(chunk));
+        });
+
+        stream.on('error', (): void => {
+          resolve(null);
+        });
+
+        stream.on('end', (): void => {
+          try {
+            const digest = hash.digest('hex');
+            resolve(digest);
+          } catch {
+            resolve(null);
+          }
+        });
+      } catch {
+        resolve(null);
+      }
+    });
   }
 }
 

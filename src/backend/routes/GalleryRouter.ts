@@ -3,7 +3,7 @@ import {Express} from 'express';
 import {GalleryMWs} from '../middlewares/GalleryMWs';
 import {RenderingMWs} from '../middlewares/RenderingMWs';
 import {ThumbnailGeneratorMWs} from '../middlewares/thumbnail/ThumbnailGeneratorMWs';
-import {UserRoles, UserDTOUtils} from '../../common/entities/UserDTO';
+import {UserRoles} from '../../common/entities/UserDTO';
 import {ThumbnailSourceType} from '../model/fileaccess/PhotoWorker';
 import {VersionMWs} from '../middlewares/VersionMWs';
 import {SupportedFormats} from '../../common/SupportedFormats';
@@ -11,8 +11,6 @@ import {ServerTimingMWs} from '../middlewares/ServerTimingMWs';
 import {MetaFileMWs} from '../middlewares/MetaFileMWs';
 import {Config} from '../../common/config/private/Config';
 import * as multer from 'multer';
-import * as path from 'path';
-import {promises as fsp} from 'fs';
 
 export class GalleryRouter {
   public static route(app: Express): void {
@@ -268,7 +266,6 @@ export class GalleryRouter {
         VersionMWs.injectGalleryVersion,
 
         // specific part: use multer to parse fields only
-        multer().none(),
         GalleryMWs.moveFiles,
         ServerTimingMWs.addServerTiming,
         RenderingMWs.renderResult
@@ -284,7 +281,6 @@ export class GalleryRouter {
         VersionMWs.injectGalleryVersion,
 
         // specific part: use multer to parse fields only
-        multer().none(),
         GalleryMWs.deleteFiles,
         ServerTimingMWs.addServerTiming,
         RenderingMWs.renderResult
@@ -292,8 +288,6 @@ export class GalleryRouter {
   }
 
   protected static addUpload(app: Express): void {
-    const upload = this.createUploadMulter();
-
     app.post(
         Config.Server.apiPath + '/gallery/upload',
         // common part
@@ -301,8 +295,6 @@ export class GalleryRouter {
         AuthenticationMWs.authorise(UserRoles.User),
         VersionMWs.injectGalleryVersion,
 
-        // specific part: multer handles multipart and saves file directly
-        upload.single('file'),
         GalleryMWs.uploadFiles,
         ServerTimingMWs.addServerTiming,
         RenderingMWs.renderResult
@@ -356,77 +348,5 @@ export class GalleryRouter {
     );
   }
 
-  private static createUploadMulter(): multer.Multer {
-    const storage = multer.diskStorage({
-      destination: async (req, file, cb) => {
-        try {
-          const autoOrganize = String((req.body?.autoOrganize ?? 'false')).toLowerCase() === 'true';
-          const uploadPath = String(req.body?.uploadPath ?? '');
-          // Validate user access to target relative path
-          const hasAccess = UserDTOUtils.isDirectoryPathAvailable(uploadPath, req.session['user'].permissions);
-          if (!hasAccess) return cb(new Error('INVALID_PATH'), null);
 
-          const baseDir = autoOrganize ? Config.Upload.defaultUploadPath : Config.Media.folder;
-          const destDir = path.join(baseDir, uploadPath);
-          await fsp.mkdir(destDir, {recursive: true});
-          cb(null, destDir);
-        } catch (err) {
-          cb(err as Error, null);
-        }
-      },
-      filename: async (req, file, cb) => {
-        try {
-          const autoOrganize = String((req.body?.autoOrganize ?? 'false')).toLowerCase() === 'true';
-          const uploadPath = String(req.body?.uploadPath ?? '');
-          const force = String((req.body?.force ?? 'false')).toLowerCase() === 'true';
-          const baseDir = autoOrganize ? Config.Upload.defaultUploadPath : Config.Media.folder;
-          const destDir = path.join(baseDir, uploadPath);
-
-          const originalName = file.originalname;
-          const targetPath = path.join(destDir, originalName);
-
-          try {
-            await fsp.access(targetPath);
-            // File exists
-            if (!force) {
-              // Save to a conflict name; handler will delete and respond with FILE_EXISTS_ERROR
-              const p = path.parse(originalName);
-              const conflictName = `${p.name}__conflict__${Date.now()}${p.ext}`;
-              (req as any)._uploadConflict = true;
-              (req as any)._uploadConflictOriginal = originalName;
-              return cb(null, conflictName);
-            }
-          } catch {
-            // does not exist, proceed with original name
-          }
-          cb(null, originalName);
-        } catch (err) {
-          cb(err as Error, null);
-        }
-      }
-    });
-
-    const fileFilter: multer.Options['fileFilter'] = (req, file, cb) => {
-      // Pre-write permission check for uploadPath
-      const fullUploadPath = path.join(String(req.body?.uploadPath ?? ''), file.originalname);
-      if (!fullUploadPath || !UserDTOUtils.isDirectoryPathAvailable(fullUploadPath, req.session['user'].permissions)) {
-        (req as any)._fileRejected = 'INVALID_PATH';
-        return cb(null, false); // reject without writing the file
-      }
-
-      // Type allow-list
-      const ext = path.extname(file.originalname).toLowerCase();
-      const isAllowed =
-        SupportedFormats.WithDots.Photos.includes(ext) ||
-        SupportedFormats.WithDots.Videos.includes(ext);
-      if (!isAllowed) {
-        (req as any)._fileRejected = 'UNSUPPORTED_TYPE';
-        return cb(null, false); // reject without throwing
-      }
-      cb(null, true);
-    };
-
-    // Avoid throwing from limits to keep error formatting consistent; validate size in handler if needed.
-    return multer({ storage, fileFilter });
-  }
 }

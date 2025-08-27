@@ -106,7 +106,7 @@ export class MediaMetadataEntity implements MediaMetadata {
   })
   @Index()
   creationDate: number;
-  
+
   @Column('smallint', {
     transformer: {
       from: (v) => Utils.getOffsetString(v), //from database repr. as smallint (minutes) to string (+/-HH:MM)
@@ -196,6 +196,9 @@ export abstract class MediaEntity implements MediaDTO {
     nullable: false,
   })
   directory: DirectoryEntity;
+
+  @Column({type: 'varchar', length: 64, nullable: true})
+  sha256?: string;
 
   @Column(() => MediaMetadataEntity)
   metadata: MediaMetadataEntity;
