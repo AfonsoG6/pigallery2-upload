@@ -66,10 +66,6 @@ export class GalleryUploadComponent implements OnInit {
               );
               if (!this.autoOrganize) this.uploadDir = this.currentDir;
             }
-            else {
-              this.currentDir = '';
-              if (!this.autoOrganize) this.uploadDir = '';
-            }
           }
       );
     }
@@ -184,6 +180,9 @@ export class GalleryUploadComponent implements OnInit {
 
     let completedFileCount = 0;
     let stoppingError = false;
+    const uploadDir = this.uploadDir;
+    const autoOrganize = this.autoOrganize;
+    const force = this.force;
 
     for (const fileName in this.files) {
       if (this.successfulFiles.includes(fileName)) continue;
@@ -191,7 +190,7 @@ export class GalleryUploadComponent implements OnInit {
       const fileLoadingBar = this.getFileLoadingBar(fileName);
       try {
         this.safeLoadingBarStart(fileLoadingBar, 0);
-        await this.uploadService.uploadFile(this.files[fileName], this.uploadDir, this.autoOrganize, this.force);
+        await this.uploadService.uploadFile(this.files[fileName], uploadDir, autoOrganize, force);
         this.fileSucceeded(fileName);
       } catch (error) {
         this.fileFailed(fileName);
@@ -204,7 +203,7 @@ export class GalleryUploadComponent implements OnInit {
         if (error.code == ErrorCodes.FILE_INVALID_PATH_ERROR) {
           this.invalidPathError = true;
           stoppingError = true;
-          this.notification.error('Invalid upload path: ' + this.uploadDir);
+          this.notification.error('Invalid upload path: ' + uploadDir);
         }
         else {
           this.notification.error(ErrorDTO.getStandardMessage(error.code));
@@ -228,13 +227,14 @@ export class GalleryUploadComponent implements OnInit {
   }
 
   async uploadFilesStage2(): Promise<void> {
+    const uploadDir = this.uploadDir;
     try {
-      await this.uploadService.organizeUploadedFiles(this.uploadDir);
+      await this.uploadService.organizeUploadedFiles(uploadDir);
     }
     catch (error) {
       if (error.code == ErrorCodes.FILE_INVALID_PATH_ERROR) {
         this.invalidPathError = true;
-        this.notification.error('Invalid upload path: ' + this.uploadDir);
+        this.notification.error('Invalid upload path: ' + uploadDir);
       }
       else {
         this.notification.error(`Failed to organize file${this.getSuccessfulFileCount() > 1 ? 's' : ''}`);
