@@ -7,9 +7,10 @@ import { ContentLoaderService } from '../contentLoader.service';
 import { Subscription } from 'rxjs';
 import { ContentWrapper } from '../../../../../common/entities/ConentWrapper';
 import { AuthenticationService } from '../../../model/network/authentication.service';
-import { ErrorCodes } from '../../../../../common/entities/Error';
+import { ErrorCodes, ErrorDTO } from '../../../../../common/entities/Error';
 import { GalleryCacheService } from '../cache.gallery.service';
 import { LoadingBarService } from '@ngx-loading-bar/core'; // added
+import { LoadingBarState } from '@ngx-loading-bar/core/loading-bar.state';
 
 enum State {
   STANDBY = 0,
@@ -43,8 +44,8 @@ export class GalleryUploadComponent implements OnInit {
   contentSubscription: Subscription = null;
 
   // loading bars: one global ref and one per-file ref
-  private globalUploadRef = this.loadingBar.useRef('global-loading-bar');
-  private fileRefs: { [refName: string]: ReturnType<LoadingBarService['useRef']> } = {};
+  private globalLoadingBarRef = this.loadingBar.useRef('global-loading-bar');
+  private fileLoadingBarRefs: { [refName: string]: LoadingBarState } = {};
 
   constructor(
     private uploadService: UploadService,
@@ -115,21 +116,29 @@ export class GalleryUploadComponent implements OnInit {
       const file = fileList[i];
       this.files[file.name] = file;
       // ensure a ref exists for this file
-      this.ensureFileRef(file.name);
+      this.getFileLoadingBar(file.name);
     }
   }
 
-  private plural(): string {
-    return Object.keys(this.files).length > 1 ? 's' : '';
+  private getTotalFileCount(): number {
+    return Object.keys(this.files).length;
+  }
+
+  private getSuccessfulFileCount(): number {
+    return this.successfulFiles.length;
+  }
+
+  private getFailedFileCount(): number {
+    return this.failedFiles.length;
   }
 
   removeFile(fileName: string): void {
     delete this.files[fileName];
     // best-effort cleanup of the file ref
     const refName = this.getFileRefName(fileName);
-    if (this.fileRefs[refName]) {
-      try { this.fileRefs[refName].complete(); } catch { /* ignore error */ }
-      delete this.fileRefs[refName];
+    if (this.fileLoadingBarRefs[refName]) {
+      try { this.fileLoadingBarRefs[refName].complete(); } catch { /* ignore error */ }
+      delete this.fileLoadingBarRefs[refName];
     }
   }
 
@@ -138,104 +147,126 @@ export class GalleryUploadComponent implements OnInit {
     return `upload-file-${fileName}`;
   }
 
-  private ensureFileRef(fileName: string): ReturnType<LoadingBarService['useRef']> {
+  private getFileLoadingBar(fileName: string): LoadingBarState {
     const refName = this.getFileRefName(fileName);
-    if (!this.fileRefs[refName]) {
-      this.fileRefs[refName] = this.loadingBar.useRef(refName);
+    if (!this.fileLoadingBarRefs[refName]) {
+      this.fileLoadingBarRefs[refName] = this.loadingBar.useRef(refName);
     }
-    return this.fileRefs[refName];
+    return this.fileLoadingBarRefs[refName];
   }
 
-  async uploadFiles(): Promise<void> {
-    if (Object.keys(this.files).length === 0) {
+  private fileFailed(fileName: string): void {
+    this.failedFiles.push(fileName);
+  }
+
+  private fileSucceeded(fileName: string): void {
+    this.successfulFiles.push(fileName);
+    this.failedFiles = this.failedFiles.filter(f => f !== fileName);
+  }
+
+  private safeLoadingBarStart(loadingBarRef: LoadingBarState, initialValue?: number): void {
+    try { loadingBarRef.start(initialValue); } catch { /* ignore error */ }
+  }
+
+  private safeLoadingBarComplete(loadingBarRef: LoadingBarState): void {
+    try { loadingBarRef.complete(); } catch { /* ignore error */ }
+  }
+
+  private safeLoadingBarSet(loadingBarRef: LoadingBarState, value: number): void {
+    try { loadingBarRef.set(value); } catch { /* ignore error */ }
+  }
+
+  async uploadFilesStage1(): Promise<void> {
+    if (this.getTotalFileCount() === 0) {
       this.notification.error('No files selected for upload.');
-      return;
+      return Promise.reject();
     }
 
-    this.state = State.UPLOADING;
-
-    const total = Object.keys(this.files).length;
-    let completed = 0;
-
-    // initialize global upload bar
-    try {
-      this.globalUploadRef.set(0);
-    } catch { /* ignore error */ }
+    let completedFileCount = 0;
+    let stoppingError = false;
 
     for (const fileName in this.files) {
       if (this.successfulFiles.includes(fileName)) continue;
 
-      const fileRef = this.ensureFileRef(fileName);
+      const fileLoadingBar = this.getFileLoadingBar(fileName);
       try {
-        // start per-file bar
-        fileRef.set(0);
-        fileRef.start();
-
+        this.safeLoadingBarStart(fileLoadingBar, 0);
         await this.uploadService.uploadFile(this.files[fileName], this.uploadDir, this.autoOrganize, this.force);
-        this.successfulFiles.push(fileName);
-        if (this.failedFiles.includes(fileName)) {
-          this.failedFiles = this.failedFiles.filter(f => f !== fileName);
-        }
+        this.fileSucceeded(fileName);
       } catch (error) {
-        this.failedFiles.push(fileName);
-        if (error.code == ErrorCodes.FILE_INVALID_PATH_ERROR) {
-          this.notification.error('Invalid upload path: ' + this.uploadDir);
-          this.invalidPathError = true;
-          this.state = State.STANDBY;
-          // complete per-file and global bars to current progress
-          try { fileRef.complete(); } catch { /* ignore error */ }
-          try {
-            this.globalUploadRef.set((completed / total) * 100);
-            this.globalUploadRef.complete();
-          } catch { /* ignore error */ }
-          return;
+        this.fileFailed(fileName);
+        // If somehow an error that isn't an ErrorDTO is thrown, treat it as an unknown critical error
+        if (!(error.code)) {
+          stoppingError = true;
+          this.notification.error('Unknown error occurred.');
         }
-        if (error.code == ErrorCodes.FILE_CONFLICT_PATH_ERROR) {
-          this.notification.error(`File${this.plural()} already exists: ${fileName}`);
-        }
-        // continue loop even on error
-      } finally {
-        // finish per-file bar and update global progress
-        try { fileRef.complete(); } catch { /* ignore error */ }
-        completed++;
-        try { this.globalUploadRef.set((completed / total) * 100); } catch { /* ignore error */ }
-      }
-    }
-
-    if (this.successfulFiles.length === 0 && this.failedFiles.length > 0) {
-      this.notification.error(`Failed to upload file${this.plural()}`);
-      this.state = State.STANDBY;
-      try { this.globalUploadRef.complete(); } catch { /* ignore error */ }
-      return;
-    }
-
-    this.notification.success(`Successfully uploaded ${this.successfulFiles.length} file${this.plural()}`);
-    if (this.autoOrganize) {
-      try {
-        await this.uploadService.organizeUploadedFiles(this.uploadDir);
-        this.notification.success(`File${this.plural()} organized successfully.`);
-      }
-      catch (error) {
+        // Special case: If the path provided is invalid, it will also be for all the other files
         if (error.code == ErrorCodes.FILE_INVALID_PATH_ERROR) {
-          this.notification.error('Invalid upload path: ' + this.uploadDir);
           this.invalidPathError = true;
-          this.state = State.STANDBY;
-          try { this.globalUploadRef.complete(); } catch { /* ignore error */ }
-          return;
+          stoppingError = true;
+          this.notification.error('Invalid upload path: ' + this.uploadDir);
         }
         else {
-          this.notification.error(`Failed to organize file${this.plural()}`);
+          this.notification.error(ErrorDTO.getStandardMessage(error.code));
         }
+      } finally {
+        // Regardless of success or failure, proceed the progress bars
+        this.safeLoadingBarComplete(fileLoadingBar);
+        completedFileCount++;
+        this.safeLoadingBarSet(this.globalLoadingBarRef, (completedFileCount / this.getTotalFileCount()) * 100);
       }
-    }
-    this.invalidPathError = false;
-    if (this.successfulFiles.length == Object.keys(this.files).length) {
-      this.state = State.FINISHED;
-      this.refreshParentDirectory();
+      if (stoppingError) break;
     }
 
-    // ensure global bar completes at the end
-    try { this.globalUploadRef.complete(); } catch { /* ignore error */ }
+    // If a stopping error occurred or if no files were successfully uploaded, we reject the promise
+    if (stoppingError || (this.getFailedFileCount() > 0)) {
+      return Promise.reject();
+    }
+    // If no stopping error occurred and at least one file was successfully uploaded, we resolve the promise
+    this.notification.success(`Successfully uploaded ${this.getSuccessfulFileCount()} file${this.getSuccessfulFileCount() > 1 ? 's' : ''}`);
+    return Promise.resolve();
+  }
+
+  async uploadFilesStage2(): Promise<void> {
+    try {
+      await this.uploadService.organizeUploadedFiles(this.uploadDir);
+    }
+    catch (error) {
+      if (error.code == ErrorCodes.FILE_INVALID_PATH_ERROR) {
+        this.invalidPathError = true;
+        this.notification.error('Invalid upload path: ' + this.uploadDir);
+      }
+      else {
+        this.notification.error(`Failed to organize file${this.getSuccessfulFileCount() > 1 ? 's' : ''}`);
+      }
+      return Promise.reject();
+    }
+    this.notification.success(`File${this.getSuccessfulFileCount() > 1 ? 's' : ''} organized successfully.`);
+    return Promise.resolve();
+  }
+
+  uploadFiles(): void {
+    this.state = State.UPLOADING;
+    this.safeLoadingBarSet(this.globalLoadingBarRef, 0);
+
+    this.uploadFilesStage1().catch(() => {
+      this.safeLoadingBarComplete(this.globalLoadingBarRef);
+      this.state = State.STANDBY;
+      return;
+    });
+
+    if (this.autoOrganize) {
+      this.uploadFilesStage2().catch(() => {
+        this.safeLoadingBarComplete(this.globalLoadingBarRef);
+        this.state = State.STANDBY;
+        return;
+      });
+    }
+    // If we reach this point, it means all files were uploaded and auto-organized successfully
+    this.invalidPathError = false;
+    this.safeLoadingBarComplete(this.globalLoadingBarRef);
+    this.state = State.FINISHED;
+    this.refreshParentDirectory();
   }
 
   openModal(template: TemplateRef<unknown>): void {
@@ -264,7 +295,7 @@ export class GalleryUploadComponent implements OnInit {
     this.uploadDir = this.authService.user.value.name;
     this.invalidPathError = false;
     // cleanup file refs
-    this.fileRefs = {};
+    this.fileLoadingBarRefs = {};
   }
 
   private async refreshParentDirectory(): Promise<void> {
