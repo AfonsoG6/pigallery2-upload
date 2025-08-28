@@ -450,4 +450,40 @@ export class GalleryManager {
     return false;
   }
 
+  /**
+   * Returns the stored sha256 for a file (media or metafile) in the given directory, if available.
+   * directoryPath must end with a path separator, directoryName is the leaf folder name, and fileName is the file's name.
+   */
+  public async getFileSha256(directoryPath: string, directoryName: string, fileName: string): Promise<string | null> {
+    const connection = await SQLConnection.getConnection();
+    if (!directoryPath) directoryPath = '.' + path.sep;
+    if (!directoryName) directoryName = '.';
+    const dir = await this.getDirIdAndTime(connection, directoryName, directoryPath);
+    if (!dir || !dir.id) return null;
+
+    // Try media table first
+    const media = await connection
+      .getRepository(MediaEntity)
+      .createQueryBuilder('media')
+      .where('media.directoryId = :dirId', { dirId: dir.id })
+      .andWhere('media.name = :fileName', { fileName })
+      .select(['media.sha256'])
+      .limit(1)
+      .getOne();
+    if (media?.sha256) return media.sha256;
+
+    // Then try generic file (metafile) table
+    const file = await connection
+      .getRepository(FileEntity)
+      .createQueryBuilder('file')
+      .where('file.directoryId = :dirId', { dirId: dir.id })
+      .andWhere('file.name = :fileName', { fileName })
+      .select(['file.sha256'])
+      .limit(1)
+      .getOne();
+    if (file?.sha256) return file.sha256;
+
+    return null;
+  }
+
 }

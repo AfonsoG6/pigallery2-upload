@@ -390,14 +390,24 @@ export class GalleryMWs {
     return (Array.isArray(val) ? val : [val]).map(v => String(v).trim()).filter(v => v.length > 0);
   }
 
-  private static async safeUnlink(filePath: string): Promise<void> {
+  private static async bestEffortUnlink(filePath: string): Promise<void> {
     if (!filePath) return;
     try { await fsp.unlink(filePath); } catch { /* ignore */ }
   }
 
-  private static async safeRename(filePath: string, newPath: string): Promise<void> {
+  private static async bestEffortRename(filePath: string, newPath: string): Promise<void> {
     if (!filePath || !newPath) return;
     try { await fsp.rename(filePath, newPath); } catch { /* ignore */ }
+  }
+
+  private static async existsFile(filePath: string): Promise<boolean> {
+    if (!filePath) return false;
+    try {
+      await fsp.access(filePath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   public static async moveFiles(
@@ -405,85 +415,119 @@ export class GalleryMWs {
     res: Response,
     next: NextFunction
   ): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  multer().none()(req, res, (err?: any) => {
-      if (err) {
-        return next(new ErrorDTO(ErrorCodes.INPUT_ERROR));
-      }
-    });
     const result = new FileActionResultDTO();
     try {
+      try {
+        await GalleryMWs.runMulterNone(req, res);
+      } catch (e) {
+        throw new ErrorDTO(ErrorCodes.INPUT_ERROR);
+      }
+
       const user: UserDTO = req.session['user'];
 
       const sourcePaths: string[] = GalleryMWs.getArrayBodyField(req, 'sourcePath', true);
-      const destinationPath: string = GalleryMWs.getStringBodyField(req, 'destinationPath', true);
+      const destinationPathRaw: string = GalleryMWs.getStringBodyField(req, 'destinationPath', true);
       const destinationFileName: string = GalleryMWs.getStringBodyField(req, 'destinationFileName', false, /[^/\\:*?"<>|]+/);
       const force: boolean = GalleryMWs.getBooleanBodyField(req, 'force', false);
+
+      const destinationPath = GalleryMWs.sanitizePath(destinationPathRaw);
 
       if (sourcePaths.length > 1 && destinationFileName) {
         throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Cannot specify destination file name when moving multiple files');
       }
 
-      for (const sourcePath of sourcePaths) {
+      for (const src of sourcePaths) {
+        const sourcePath = GalleryMWs.sanitizePath(src);
         try {
-          if (UserDTOUtils.isDirectoryPathAvailable(sourcePath, user.permissions) === false) {
-            throw new ErrorDTO(ErrorCodes.FILE_INVALID_PATH_ERROR, 'Source path is not available for user');
+          if (!UserDTOUtils.isDirectoryPathAvailable(sourcePath, user.permissions)) {
+            throw new ErrorDTO(ErrorCodes.FILE_INVALID_PATH_ERROR);
           }
 
           const fullSourcePath = path.join(ProjectPath.ImageFolder, sourcePath);
           let isDirectory = false;
-          try { isDirectory = await fsp.stat(fullSourcePath).then(stat => stat.isDirectory()) }
-          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error checking source path: ' + e.toString()); }
+          try {
+            isDirectory = await fsp.stat(fullSourcePath).then(stat => stat.isDirectory());
+          } catch {
+            throw new ErrorDTO(ErrorCodes.GENERAL_ERROR);
+          }
           const isFile = !isDirectory;
 
-          let relDestinationPath = destinationPath;
+          // Build relative destination path (under gallery root)
+          let relDestinationPath: string;
           if (isFile) {
+            const srcBase = path.basename(sourcePath);
             if (!destinationFileName) {
-              relDestinationPath = path.join(destinationPath, path.basename(sourcePath));
+              relDestinationPath = path.join(destinationPath, srcBase);
+            } else if (path.extname(destinationFileName) === '') {
+              relDestinationPath = path.join(destinationPath, destinationFileName + path.extname(srcBase));
+            } else {
+              relDestinationPath = path.join(destinationPath, destinationFileName);
             }
-            else if (destinationFileName && path.extname(destinationFileName) === '') {
-              relDestinationPath = path.join(destinationPath, destinationFileName + path.extname(sourcePath));
+          } else {
+            if (destinationFileName) {
+              throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Cannot specify destination file name when moving a directory');
             }
-          }
-          else {
             relDestinationPath = path.join(destinationPath, path.basename(sourcePath));
           }
-          if (isDirectory && destinationFileName) {
-            throw new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Cannot specify destination file name when moving a directory');
-          }
 
-          if (UserDTOUtils.isDirectoryPathAvailable(relDestinationPath, user.permissions) === false) {
-            throw new ErrorDTO(ErrorCodes.FILE_INVALID_PATH_ERROR, 'Destination path is not available for user');
+          if (!UserDTOUtils.isDirectoryPathAvailable(relDestinationPath, user.permissions)) {
+            throw new ErrorDTO(ErrorCodes.FILE_INVALID_PATH_ERROR);
           }
 
           const fullDestinationPath = path.join(ProjectPath.ImageFolder, relDestinationPath);
 
-          if (force === false && isFile) {
-            await fsp.access(fullDestinationPath).then(
-              () => { throw new ErrorDTO(ErrorCodes.FILE_CONFLICT_PATH_ERROR, 'File already exists at destination: ' + relDestinationPath); },
-              () => { /* File does not exist, proceed with write */ }
-            );
+          if (!force && isFile) {
+            // If destination file path already exists, it's a path conflict
+            if (await GalleryMWs.existsFile(fullDestinationPath)) {
+              throw new ErrorDTO(ErrorCodes.FILE_CONFLICT_PATH_ERROR);
+            }
+
+            const srcDirFullPath = DiskManager.normalizeDirPath(path.dirname(sourcePath));
+            const srcDirPath = path.join(path.dirname(srcDirFullPath), path.sep);
+            const srcDirName = path.basename(srcDirFullPath);
+
+            const dstDirFullPath = DiskManager.normalizeDirPath(path.dirname(relDestinationPath));
+            const dstDirPath = path.join(path.dirname(dstDirFullPath), path.sep);
+            const dstDirName = path.basename(dstDirFullPath);
+
+            const movingAcrossDirs = !(srcDirPath === dstDirPath && srcDirName === dstDirName);
+            if (movingAcrossDirs) {
+              const fileName = path.basename(sourcePath);
+              const gm = ObjectManagers.getInstance().GalleryManager;
+              const sha256 = await gm.getFileSha256(srcDirPath, srcDirName, fileName);
+              if (sha256) {
+                const duplicateExists = await gm.checkFileHashExistsInDir(dstDirPath, dstDirName, sha256);
+                if (duplicateExists) {
+                  throw new ErrorDTO(ErrorCodes.FILE_CONFLICT_HASH_ERROR);
+                }
+              }
+            }
           }
 
           try { await fsp.mkdir(path.dirname(fullDestinationPath), { recursive: true }); }
-          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error creating destination directory: ' + e.toString()); }
+          catch { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR); }
           try { await fsp.rename(fullSourcePath, fullDestinationPath); }
-          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error moving file: ' + e.toString()); }
-        }
-        catch (e) {
+          catch { throw new ErrorDTO(ErrorCodes.FILE_RENAME_FAILURE); }
+        } catch (e) {
           if (e instanceof ErrorDTO) {
-            result.addFailedPath(sourcePath, e);
+            result.addFailedPath(src, e);
           } else {
-            result.addFailedPath(sourcePath, new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Unknown error during moving'));
+            result.addFailedPath(src, new ErrorDTO(ErrorCodes.GENERAL_ERROR));
           }
         }
       }
-    }
-    catch (e) {
+    } catch (e) {
       return next(e);
     }
     req.resultPipe = result;
     return next();
+  }
+
+  private static sanitizePath(p: string): string {
+    // Parse the path to interpret both Windows and Unix-style paths
+    const parsedPath = path.parse(p);
+    // Then reconstruct the path with the platform-specific separator and normalize it
+    return path.normalize(path.join(parsedPath.dir, parsedPath.base));
   }
 
   public static async deleteFiles(
@@ -491,30 +535,32 @@ export class GalleryMWs {
     res: Response,
     next: NextFunction
   ): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  multer().none()(req, res, (err?: any) => {
-      if (err) {
-        return next(new ErrorDTO(ErrorCodes.INPUT_ERROR));
-      }
-    });
     const result = new FileActionResultDTO();
     try {
+      try {
+        await GalleryMWs.runMulterNone(req, res);
+      } catch (e) {
+        throw new ErrorDTO(ErrorCodes.INPUT_ERROR);
+      }
       const targetPaths: string[] = GalleryMWs.getArrayBodyField(req, 'targetPath');
 
       for (const targetPath of targetPaths) {
+        const sanitizedTargetPath = GalleryMWs.sanitizePath(targetPath);
+        const fullSanitizedTargetPath = path.join(ProjectPath.ImageFolder, sanitizedTargetPath);
+        console.log(`sanitizedTargetPath: ${sanitizedTargetPath}`);
+        console.log(`fullSanitizedTargetPath: ${fullSanitizedTargetPath}`);
         try {
-          if (UserDTOUtils.isDirectoryPathAvailable(targetPath, req.session['user'].permissions) === false) {
-            throw new ErrorDTO(ErrorCodes.FILE_INVALID_PATH_ERROR, 'File path is not available for user');
+          if (!UserDTOUtils.isDirectoryPathAvailable(sanitizedTargetPath, req.session['user'].permissions)) {
+            throw new ErrorDTO(ErrorCodes.FILE_INVALID_PATH_ERROR);
           }
-          const fullTargetPath = path.join(ProjectPath.ImageFolder, targetPath);
-          try { await fsp.rm(fullTargetPath, { recursive: true }); }
-          catch (e) { throw new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error deleting directory: ' + e.toString()); }
+          try { await fsp.rm(fullSanitizedTargetPath, { recursive: true }); }
+          catch (e) { throw new ErrorDTO(ErrorCodes.FILE_RM_FAILURE); }
         }
         catch (e) {
           if (e instanceof ErrorDTO) {
             result.addFailedPath(targetPath, e);
           } else {
-            result.addFailedPath(targetPath, new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Unknown error during deletion'));
+            result.addFailedPath(targetPath, new ErrorDTO(ErrorCodes.GENERAL_ERROR));
           }
         }
       }
@@ -522,6 +568,7 @@ export class GalleryMWs {
     catch (e) {
       return next(e);
     }
+    // If we reach this point, it means the deletion was successful
     req.resultPipe = result;
     return next();
   }
@@ -668,6 +715,21 @@ export class GalleryMWs {
     });
   }
 
+  // Run multer.none() as a Promise so we can await it
+  private static runMulterNone(req: Request, res: Response): Promise<void> {
+    const upload = GalleryMWs.createUploadMulter();
+    return new Promise((resolve, reject) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      upload.none()(req, res, (err?: any) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+
   public static async uploadFiles(
     req: Request,
     res: Response,
@@ -747,17 +809,17 @@ export class GalleryMWs {
     } catch (e) {
       if (file) {
         // Best effort: Attempt to delete the failed uploaded file to avoid building up garbage
-        await GalleryMWs.safeUnlink(file.path);
+        await GalleryMWs.bestEffortUnlink(file.path);
       }
       if (fileInAux) {
         // Best effort: If the auxiliary file exists, try to restore it to its original name/path
-        await GalleryMWs.safeRename(conflictAuxPath, conflictOriginalPath);
+        await GalleryMWs.bestEffortRename(conflictAuxPath, conflictOriginalPath);
       }
       return next(e);
     }
 
     // If everything went well, we can safely remove the auxiliary file and return
-    if (fileInAux) await GalleryMWs.safeUnlink(conflictAuxPath);
+    if (fileInAux) await GalleryMWs.bestEffortUnlink(conflictAuxPath);
     req.resultPipe = "ok";
     return next();
   }
