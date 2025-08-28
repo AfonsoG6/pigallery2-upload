@@ -92,88 +92,62 @@ export class GalleryFileActionsComponent {
     }
   }
 
-  private plural(opposite = false): string {
-    if (opposite) return this.fileActionsService.multipleSelectedPaths() ? '' : 's';
-    return this.fileActionsService.multipleSelectedPaths() ? 's' : '';
+  private getTargetPathCount(): number {
+    return this.fileActionsService.getSelectedPathCount();
   }
 
-  private nTargets(): number {
-    return this.fileActionsService.numberOfSelectedPaths();
+  private getFailedPathCount(): number {
+    return this.fileActionsService.getFailedPathCount();
+  }
+
+  private getSuccessfulPathCount(): number {
+    return this.fileActionsService.getSuccessfulPathCount();
   }
 
   private async handleResult(resultDTO: FileActionResultDTO): Promise<void> {
-    if (resultDTO.failedPaths.length === 0) {
-      this.state = State.FINISHED;
-      if (this.action === 'move')
-        this.notification.success(`Successfully moved ${this.nTargets()} file${this.plural()} to ${this.destinationPath}`);
-      else if (this.action === 'delete')
-        this.notification.success(`Successfully deleted ${this.nTargets()} file${this.plural()}`);
-    }
-    else {
-      if (this.fileActionsService.allFailed(resultDTO.failedPaths.map(failedPath => failedPath.path))) {
-        // Send one single notification if all paths failed
-        const firstReason = resultDTO.failedPaths[0].reason;
-        if (resultDTO.failedPaths.every(failedPath => failedPath.reason.code === firstReason.code)) {
-          this.notifyError(firstReason);
-        }
-        else {
-          this.notification.error(`Failed to ${this.action} file${this.plural()} due to multiple errors`);
-        }
-      }
-      else {
-        // Send individual notifications for each failed path
-        for (const failedPathDTO of resultDTO.failedPaths) {
-          this.notification.error(failedPathDTO.reason.message);
-        }
+    this.fileActionsService.updateFailedAndSuccessfulPaths(resultDTO.failedPaths.map(failedPath => failedPath.path));
+    if (resultDTO.failedPaths.length > 0) {
+      // Partial success
+      const firstReason = resultDTO.failedPaths[0].reason;
+      if (resultDTO.failedPaths.every(failedPath => failedPath.reason.code === firstReason.code)) {
+        this.notification.error(firstReason.getStandardMessage());
+      } else {
+        this.notification.error(`Multiple errors occurred`);
       }
       this.state = State.STANDBY;
+      return;
     }
-    this.fileActionsService.updateFailedAndSuccessfulPaths(resultDTO.failedPaths.map(failedPath => failedPath.path));
-    if (this.state === State.FINISHED) {
-      this.hideModal();
-      const parentPath = path.dirname(this.fileActionsService.getSelectedPaths()[0]);
-      this.fileActionsService.clearSelectedPaths();
-      this.resetForm();
-      await this.redirectToDirectory(parentPath);
+    // Complete success
+    this.state = State.FINISHED;
+    if (this.action === 'move') {
+      this.notification.success(`Successfully moved ${this.getTargetPathCount()} file${this.getSuccessfulPathCount() > 0 ? 's' : ''} to ${this.destinationPath}`);
+    } else if (this.action === 'delete') {
+      this.notification.success(`Successfully deleted ${this.getTargetPathCount()} file${this.getSuccessfulPathCount() > 0 ? 's' : ''}`);
     }
-  }
-
-  private notifyError(errorDTO: ErrorDTO): void {
-    if (errorDTO.code === ErrorCodes.FILE_INVALID_PATH_ERROR) {
-      this.notification.error('Invalid destination path: ' + this.destinationPath);
-      this.invalidPathError = true;
-    } else if (errorDTO.code === ErrorCodes.FILE_CONFLICT_PATH_ERROR) {
-      this.notification.error(`File already exists at destination: ${this.destinationPath}`);
-      this.invalidPathError = false;
-    } else {
-      this.notification.error(`Failed to ${this.action} file`);
-      this.invalidPathError = false;
-    }
+    this.hideModal();
+    const parentPath = path.dirname(this.fileActionsService.getSelectedPaths()[0]);
+    this.fileActionsService.clearSelectedPaths();
+    this.resetForm();
+    await this.redirectToDirectory(parentPath);
   }
 
   async performAction(): Promise<void> {
-    if (this.action === 'move') {
-      try {
-        this.state = State.PERFORMING;
-        const resultDTO = await this.fileActionsService.moveFiles(this.destinationPath, this.destinationFileName, this.force);
-        await this.handleResult(resultDTO);
-      } catch (error) {
-        this.notifyError(error as ErrorDTO);
-        this.state = State.STANDBY;
+    this.state = State.PERFORMING;
+    try {
+      let resultDTO: FileActionResultDTO;
+      if (this.action === 'move') {
+        resultDTO = await this.fileActionsService.moveFiles(this.destinationPath, this.destinationFileName, this.force);
+      } else if (this.action === 'delete') {
+        resultDTO = await this.fileActionsService.deleteFiles();
       }
+      await this.handleResult(resultDTO);
+    } catch (e) {
+      const error = e as ErrorDTO;
+      this.notification.error(error.getStandardMessage());
+      this.invalidPathError = (error.code === ErrorCodes.FILE_INVALID_PATH_ERROR);
+      this.state = State.STANDBY;
     }
-    else if (this.action === 'delete') {
-      try {
-        const resultDTO = await this.fileActionsService.deleteFiles();
-        await this.handleResult(resultDTO);
-      } catch (error) {
-        this.notifyError(error as ErrorDTO);
-        this.state = State.STANDBY;
-      }
-    }
-    else {
-      this.fileActionsService.clearSelectedPaths();
-    }
+    this.fileActionsService.clearSelectedPaths();
   }
 
   private async redirectToDirectory(dir: string): Promise<void> {

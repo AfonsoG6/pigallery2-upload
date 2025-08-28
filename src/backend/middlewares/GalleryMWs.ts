@@ -452,7 +452,6 @@ export class GalleryMWs {
           }
           const isFile = !isDirectory;
 
-          // Build relative destination path (under gallery root)
           let relDestinationPath: string;
           if (isFile) {
             const srcBase = path.basename(sourcePath);

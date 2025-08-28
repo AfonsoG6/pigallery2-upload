@@ -91,8 +91,14 @@ export class ErrorDTO {
         return 'Failed to change the permissions of a file.';
       case ErrorCodes.FILE_UTIMES_FAILURE:
         return 'Failed to update the timestamps of a file.';
+      case ErrorCodes.FILE_RM_FAILURE:
+        return 'Failed to remove a file.';
       default:
         return 'An unknown error occurred.';
     }
+  }
+
+  public getStandardMessage(): string {
+    return ErrorDTO.getStandardMessage(this.code);
   }
 }

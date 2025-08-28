@@ -39,8 +39,16 @@ export class GalleryFileActionsService {
     return this.selectedPaths;
   }
 
-  public numberOfSelectedPaths(): number {
+  public getSelectedPathCount(): number {
     return this.selectedPaths.length;
+  }
+
+  public getFailedPathCount(): number {
+    return this.failedPaths.size;
+  }
+
+  public getSuccessfulPathCount(): number {
+    return this.successfulPaths.size;
   }
 
   public pathIsSelected(path: string): boolean {
