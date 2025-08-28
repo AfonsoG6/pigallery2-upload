@@ -16,9 +16,9 @@
 
 <ng-template #fileActionsModal>
   <div class="modal-header">
-    <h5 class="modal-title" *ngIf="action === 'move'" i18n>Moving {{fileActionsService.numberOfSelectedPaths()}} files
+    <h5 class="modal-title" *ngIf="action === 'move'" i18n>Moving {{fileActionsService.getSelectedPathCount()}} files
     </h5>
-    <h5 class="modal-title" *ngIf="action === 'delete'" i18n>Deleting {{fileActionsService.numberOfSelectedPaths()}}
+    <h5 class="modal-title" *ngIf="action === 'delete'" i18n>Deleting {{fileActionsService.getSelectedPathCount()}}
       files</h5>
     <button type="button" class="btn-close" (click)="close()" [disabled]="state === 1" aria-label="Close"></button>
   </div>
@@ -30,7 +30,7 @@
           <ng-icon *ngIf="fileActionsService.successful(selectedPath)" id="resultIcon" name="ionCheckmarkCircleOutline"
             class="text-success ms-2"></ng-icon>
           <ng-icon *ngIf="fileActionsService.failed(selectedPath)" id="resultIcon" name="ionCloseCircleOutline"
-            class="text-danger ms-2"></ng-icon>
+            class="text-danger ms-2" [title]="fileActionsService.getFailureReason(selectedPath)"></ng-icon>
           <ng-container *ngIf="state === 0">
             <button type="button" class="btn btn-danger btn-sm float-end"
               (click)="fileActionsService.removeSelectedPath(selectedPath)" i18n>Remove</button>
@@ -43,9 +43,8 @@
         </div>
         <div class="row mt-1">
           <div class="flex-container col-12">
-            <input type="text" id="destinationPath" class="form-control"
-              (change)="onChangeDestinationPath($event)" [value]="destinationPath || ''" [disabled]="state !== 0"
-              placeholder="path\to\move\to">
+            <input type="text" id="destinationPath" class="form-control" (change)="onChangeDestinationPath($event)"
+              [value]="destinationPath || ''" [disabled]="state !== 0" placeholder="path\to\move\to">
             <span style="vertical-align: middle; padding-left: 4px; padding-right: 4px;">\</span>
             <input type="text" id="destinationFileName" class="form-control"
               (change)="onChangeDestinationFileName($event)"

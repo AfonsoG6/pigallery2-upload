@@ -260,7 +260,7 @@ export class GalleryNavigatorComponent {
       //hide delay
       if (this.lastScroll.up < scrollPosition - window.innerHeight * Config.Gallery.NavBar.NavbarHideDelay) {
         this.showFilters = false;
-        this.dropdown.hide();
+        if (this.dropdown) this.dropdown.hide();
       }
       this.lastScroll.down = scrollPosition;
     } else if (this.lastScroll.any > scrollPosition) {

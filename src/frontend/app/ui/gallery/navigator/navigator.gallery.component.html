@@ -20,7 +20,7 @@
     <div class="ms-auto text-end col-auto">
       <ng-container *ngIf="fileActionsService.hasSelectedPaths()">
         <div class="photos-count">
-          {{fileActionsService.numberOfSelectedPaths()}} <span i18n>selected</span>
+          {{fileActionsService.getSelectedPathCount()}} <span i18n>selected</span>
         </div>
         <div class="divider">&nbsp;</div>
         <app-file-actions [action]="'move'" [showText]="false" class="me-2 ms-2"></app-file-actions>

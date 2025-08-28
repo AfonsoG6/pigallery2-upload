@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, TemplateRef } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, TemplateRef } from '@angular/core';
 import { NotificationService } from '../../../model/notification.service';
 import { UploadService } from '../upload.service';
 import { BsModalService, BsModalRef } from 'ngx-bootstrap/modal';
@@ -23,7 +23,7 @@ enum State {
   templateUrl: './upload.gallery.component.html',
   styleUrls: ['./upload.gallery.component.css'],
 })
-export class GalleryUploadComponent implements OnInit {
+export class GalleryUploadComponent implements OnInit, OnDestroy {
   enabled = true;
   @Input() dropDownItem = false;
   modalRef: BsModalRef;
@@ -34,6 +34,7 @@ export class GalleryUploadComponent implements OnInit {
   files: { [key: string]: File } = {};
   successfulFiles: string[] = [];
   failedFiles: string[] = [];
+  failedReasons: { [fileName: string]: string } = {};
 
   autoOrganize = true;
   force = false;
@@ -172,6 +173,14 @@ export class GalleryUploadComponent implements OnInit {
     try { loadingBarRef.set(value); } catch { /* ignore error */ }
   }
 
+  private getErrorMessage(err: unknown): string {
+    const e = err as Partial<ErrorDTO> | undefined;
+    if (e && typeof e.code === 'number') {
+      return ErrorDTO.getStandardMessage(e.code as number);
+    }
+    return 'An unknown error occurred.';
+  }
+
   async uploadFilesStage1(): Promise<void> {
     if (this.getTotalFileCount() === 0) {
       this.notification.error('No files selected for upload.');
@@ -193,20 +202,22 @@ export class GalleryUploadComponent implements OnInit {
         await this.uploadService.uploadFile(this.files[fileName], uploadDir, autoOrganize, force);
         this.fileSucceeded(fileName);
       } catch (error) {
+        // record a human-friendly reason if available
+        this.failedReasons[fileName] = this.getErrorMessage(error);
         this.fileFailed(fileName);
         // If somehow an error that isn't an ErrorDTO is thrown, treat it as an unknown critical error
-        if (!(error.code)) {
+        if (!(error as Partial<ErrorDTO>).code) {
           stoppingError = true;
           this.notification.error('Unknown error occurred.');
         }
         // Special case: If the path provided is invalid, it will also be for all the other files
-        if (error.code == ErrorCodes.FILE_INVALID_PATH_ERROR) {
+        if ((error as Partial<ErrorDTO>).code == ErrorCodes.FILE_INVALID_PATH_ERROR) {
           this.invalidPathError = true;
           stoppingError = true;
           this.notification.error('Invalid upload path: ' + uploadDir);
         }
         else {
-          this.notification.error(ErrorDTO.getStandardMessage(error.code));
+          this.notification.error(this.getErrorMessage(error));
         }
       } finally {
         // Regardless of success or failure, proceed the progress bars
@@ -281,8 +292,6 @@ export class GalleryUploadComponent implements OnInit {
       this.modalRef.hide();
       this.modalRef = null;
     }
-    // Manually add "overflow-y: scroll" back to the document body which for some reason is removed.
-    document.body.style.overflowY = 'scroll';
   }
 
   resetForm(): void {
@@ -290,6 +299,7 @@ export class GalleryUploadComponent implements OnInit {
     this.files = {};
     this.successfulFiles = [];
     this.failedFiles = [];
+    this.failedReasons = {};
     this.autoOrganize = true;
     this.force = false;
     this.uploadDir = this.authService.user.value.name;

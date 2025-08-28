@@ -97,8 +97,4 @@ export class ErrorDTO {
         return 'An unknown error occurred.';
     }
   }
-
-  public getStandardMessage(): string {
-    return ErrorDTO.getStandardMessage(this.code);
-  }
 }

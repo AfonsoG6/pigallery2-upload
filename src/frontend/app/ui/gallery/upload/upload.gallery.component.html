@@ -34,7 +34,7 @@
                 <ng-icon *ngIf="successfulFiles.includes(file.key)" id="resultIcon" name="ionCheckmarkCircleOutline"
                   class="text-success ms-2"></ng-icon>
                 <ng-icon *ngIf="failedFiles.includes(file.key)" id="resultIcon" name="ionCloseCircleOutline"
-                  class="text-danger ms-2"></ng-icon>
+                  class="text-danger ms-2" [title]="failedReasons[file.key] || 'An unknown error occurred.'"></ng-icon>
                 <ng-container *ngIf="state === 0">
                   <button type="button" class="btn btn-danger btn-sm float-end" (click)="removeFile(file.key)"
                     i18n>Remove</button>

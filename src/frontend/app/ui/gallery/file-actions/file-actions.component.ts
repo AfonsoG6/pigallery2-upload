@@ -63,8 +63,6 @@ export class GalleryFileActionsComponent {
       this.modalRef.hide();
       this.modalRef = null;
     }
-    // Manually add "overflow-y: scroll" back to the document body which for some reason is removed.
-    document.body.style.overflowY = 'scroll';
   }
 
   close(): void {
@@ -105,20 +103,18 @@ export class GalleryFileActionsComponent {
   }
 
   private async handleResult(resultDTO: FileActionResultDTO): Promise<void> {
-    this.fileActionsService.updateFailedAndSuccessfulPaths(resultDTO.failedPaths.map(failedPath => failedPath.path));
+    this.fileActionsService.updateFailedAndSuccessfulPaths(resultDTO.failedPaths);
     if (resultDTO.failedPaths.length > 0) {
       // Partial success
       const firstReason = resultDTO.failedPaths[0].reason;
       if (resultDTO.failedPaths.every(failedPath => failedPath.reason.code === firstReason.code)) {
-        this.notification.error(firstReason.getStandardMessage());
+        this.notification.error(ErrorDTO.getStandardMessage(firstReason.code));
       } else {
         this.notification.error(`Multiple errors occurred`);
       }
-      this.state = State.STANDBY;
-      return;
+      return Promise.reject();
     }
     // Complete success
-    this.state = State.FINISHED;
     if (this.action === 'move') {
       this.notification.success(`Successfully moved ${this.getTargetPathCount()} file${this.getSuccessfulPathCount() > 0 ? 's' : ''} to ${this.destinationPath}`);
     } else if (this.action === 'delete') {
@@ -129,25 +125,44 @@ export class GalleryFileActionsComponent {
     this.fileActionsService.clearSelectedPaths();
     this.resetForm();
     await this.redirectToDirectory(parentPath);
+    return Promise.resolve();
   }
 
-  async performAction(): Promise<void> {
-    this.state = State.PERFORMING;
+  async performActionAsync(): Promise<void> {
     try {
+      if (this.action === 'clear') {
+        this.resetForm();
+        return Promise.resolve();
+      }
       let resultDTO: FileActionResultDTO;
       if (this.action === 'move') {
-        resultDTO = await this.fileActionsService.moveFiles(this.destinationPath, this.destinationFileName, this.force);
+        resultDTO = await this.fileActionsService.moveFiles(this.destinationPath, this.destinationFileName, this.force)
+          .catch((e) => { throw e; });
       } else if (this.action === 'delete') {
-        resultDTO = await this.fileActionsService.deleteFiles();
+        resultDTO = await this.fileActionsService.deleteFiles()
+          .catch((e) => { throw e; });
       }
-      await this.handleResult(resultDTO);
+      return this.handleResult(resultDTO);
     } catch (e) {
-      const error = e as ErrorDTO;
-      this.notification.error(error.getStandardMessage());
-      this.invalidPathError = (error.code === ErrorCodes.FILE_INVALID_PATH_ERROR);
-      this.state = State.STANDBY;
+      if (e instanceof ErrorDTO) {
+        this.notification.error(ErrorDTO.getStandardMessage(e.code));
+        this.invalidPathError = (e.code === ErrorCodes.FILE_INVALID_PATH_ERROR);
+      } else {
+        this.notification.error('An unknown error occurred');
+        console.log(e);
+      }
+      return Promise.reject();
     }
-    this.fileActionsService.clearSelectedPaths();
+  }
+
+  performAction(): void {
+    this.state = State.PERFORMING;
+    this.performActionAsync().then(() => {
+      this.state = State.FINISHED;
+      this.fileActionsService.clearSelectedPaths();
+    }).catch(() => {
+      this.state = State.STANDBY;
+    });
   }
 
   private async redirectToDirectory(dir: string): Promise<void> {

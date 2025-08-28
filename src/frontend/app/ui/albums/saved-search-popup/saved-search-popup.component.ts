@@ -24,8 +24,6 @@ export class SavedSearchPopupComponent {
   public hideModal(): void {
     this.modalRef.hide();
     this.modalRef = null;
-    // Manually add "overflow-y: scroll" back to the document body which for some reason is removed.
-    document.body.style.overflowY = 'scroll';
   }
 }
 

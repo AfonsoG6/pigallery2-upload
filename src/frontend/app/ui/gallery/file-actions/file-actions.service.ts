@@ -1,12 +1,15 @@
 import {Injectable} from '@angular/core';
 import { NetworkService } from '../../../model/network/network.service';
-import { FileActionResultDTO } from '../../../../../common/entities/FileActionResultDTO';
+import { FailedPathDTO, FileActionResultDTO } from '../../../../../common/entities/FileActionResultDTO';
+import { ErrorCodes, ErrorDTO } from '../../../../../common/entities/Error';
 
 @Injectable()
 export class GalleryFileActionsService {
   private selectedPaths: string[] = [];
   private successfulPaths: Set<string> = new Set();
   private failedPaths: Set<string> = new Set();
+  // store failure reason per path (by error code)
+  private failedPathReasons: Map<string, ErrorCodes> = new Map();
 
   constructor(private networkService: NetworkService) {}
 
@@ -27,12 +30,14 @@ export class GalleryFileActionsService {
     }
     this.successfulPaths.delete(path);
     this.failedPaths.delete(path);
+    this.failedPathReasons.delete(path);
   }
 
   public clearSelectedPaths(): void {
     this.selectedPaths = [];
     this.successfulPaths.clear();
     this.failedPaths.clear();
+    this.failedPathReasons.clear();
   }
 
   public getSelectedPaths(): string[] {
@@ -61,13 +66,20 @@ export class GalleryFileActionsService {
     }
   }
 
-  public updateFailedAndSuccessfulPaths(failedPaths: string[]): void {
+  public updateFailedAndSuccessfulPaths(failed: FailedPathDTO[]): void {
+    const failedSet = new Set(failed.map(fp => fp.path));
     for (const sPath of this.selectedPaths) {
-      if (failedPaths.includes(sPath)) {
+      if (failedSet.has(sPath)) {
         this.failedPaths.add(sPath);
-      }
-      else {
+        const reason: ErrorDTO | undefined = failed.find(fp => fp.path === sPath)?.reason as ErrorDTO | undefined;
+        if (reason && typeof reason.code !== 'undefined') {
+          this.failedPathReasons.set(sPath, reason.code as ErrorCodes);
+        } else {
+          this.failedPathReasons.set(sPath, ErrorCodes.GENERAL_ERROR);
+        }
+      } else {
         this.failedPaths.delete(sPath);
+        this.failedPathReasons.delete(sPath);
         this.successfulPaths.add(sPath);
       }
     }
@@ -85,6 +97,14 @@ export class GalleryFileActionsService {
     return this.failedPaths.has(path);
   }
 
+  public getFailureReason(path: string): string {
+    const code = this.failedPathReasons.get(path);
+    if (typeof code === 'number') {
+      return ErrorDTO.getStandardMessage(code);
+    }
+    return 'An unknown error occurred.';
+  }
+
   public toggleSelectedPath(path: string): void {
     if (this.pathIsSelected(path)) {
       this.removeSelectedPath(path);
@@ -98,37 +118,37 @@ export class GalleryFileActionsService {
   }
 
   public async moveFiles(destinationPath: string, destinationFileName: string, force: boolean): Promise<FileActionResultDTO> {
-    const formData = new FormData();
-    for (const sourcePath of this.selectedPaths) {
-      if (this.successful(sourcePath)) continue;
-      formData.append('sourcePath', sourcePath);
-    }
-    formData.append('destinationPath', destinationPath);
-    if (destinationFileName) {
-      formData.append('destinationFileName', destinationFileName);
-    }
-    formData.append('force', String(force));
-
     try {
+      const formData = new FormData();
+      for (const sourcePath of this.selectedPaths) {
+        if (this.successful(sourcePath)) continue;
+        formData.append('sourcePath', sourcePath);
+      }
+      formData.append('destinationPath', destinationPath);
+      if (destinationFileName) {
+        formData.append('destinationFileName', destinationFileName);
+      }
+      formData.append('force', String(force));
+
       return await this.networkService.postMultipartFormData<FileActionResultDTO>('/gallery/move/', formData);
     } catch (error) {
       console.error('Error moving files:', error);
-      throw error;
+      return Promise.reject(error);
     }
   }
 
   public async deleteFiles(): Promise<FileActionResultDTO> {
-    const formData = new FormData();
-    for (const targetPath of this.selectedPaths) {
-      if (this.successful(targetPath)) continue;
-      formData.append('targetPath', targetPath);
-    }
-
     try {
+      const formData = new FormData();
+      for (const targetPath of this.selectedPaths) {
+        if (this.successful(targetPath)) continue;
+        formData.append('targetPath', targetPath);
+      }
+
       return await this.networkService.postMultipartFormData<FileActionResultDTO>('/gallery/delete/', formData);
     } catch (error) {
       console.error('Error deleting files:', error);
-      throw error;
+      return Promise.reject(error);
     }
   }
 
