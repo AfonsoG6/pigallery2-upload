@@ -288,7 +288,6 @@ export class IndexingManager {
   }
 
   private async resolveLazySHA256(filedto: FileDTO): Promise<void> {
-    console.log('Resolving SHA256 for file:', filedto.name);
     if ((filedto as any).__sha256Promise && !filedto.sha256) {
       try {
         filedto.sha256 = await (filedto as any).__sha256Promise;
