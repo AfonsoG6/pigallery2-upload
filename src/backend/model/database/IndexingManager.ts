@@ -330,12 +330,10 @@ export class IndexingManager {
         item.directory = scannedDirectory;
         metaFile.directory = {id: currentDirID} as DirectoryBaseDTO;
         metaFilesToInsert.push(metaFile);
-      } else if ((item as MDFileDTO).date) {
-        if ((item as MDFileDTO).date != (metaFile as MDFileDTO).date) {
-          (metaFile as MDFileDTO).date = (item as MDFileDTO).date;
-          (metaFile as MDFileDTO).sha256 = (item as MDFileDTO).sha256;
-          MDFilesToUpdate.push(metaFile);
-        }
+      } else if ((item as MDFileDTO).date && ((item as MDFileDTO).date != (metaFile as MDFileDTO).date)) {
+        (metaFile as MDFileDTO).date = (item as MDFileDTO).date;
+        metaFile.sha256 = item.sha256;
+        MDFilesToUpdate.push(metaFile);
       }
     }
 
