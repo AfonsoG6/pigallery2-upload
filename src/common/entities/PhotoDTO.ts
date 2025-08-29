@@ -10,6 +10,7 @@ export interface PhotoDTO extends CoverPhotoDTO, MediaDTO {
   id: number;
   name: string;
   directory: DirectoryPathDTO;
+  sha256?: string;
   metadata: PhotoMetadata;
   missingThumbnails?: number;
 }

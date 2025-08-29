@@ -330,16 +330,19 @@ export class IndexingManager {
         item.directory = null;
         metaFile = Utils.clone(item);
         item.directory = scannedDirectory;
-        metaFile.directory = {id: currentDirID} as DirectoryBaseDTO;
+        metaFile.directory = { id: currentDirID } as DirectoryBaseDTO;
         metaFilesToInsert.push(metaFile);
-      } else if ((item as MDFileDTO).date && ((item as MDFileDTO).date != (metaFile as MDFileDTO).date)) {
-        (metaFile as MDFileDTO).date = (item as MDFileDTO).date;
-        mustUpdate = true;
-      } else if ((item as MDFileDTO).sha256 && ((item as MDFileDTO).sha256 != (metaFile as MDFileDTO).sha256)) {
-        (metaFile as MDFileDTO).sha256 = (item as MDFileDTO).sha256;
-        mustUpdate = true;
+      } else {
+        if ((item as MDFileDTO).date && ((item as MDFileDTO).date != (metaFile as MDFileDTO).date)) {
+          (metaFile as MDFileDTO).date = (item as MDFileDTO).date;
+          mustUpdate = true;
+        }
+        if ((item as MDFileDTO).sha256 && ((item as MDFileDTO).sha256 != (metaFile as MDFileDTO).sha256)) {
+          (metaFile as MDFileDTO).sha256 = (item as MDFileDTO).sha256;
+          mustUpdate = true;
+        }
+        if (mustUpdate) MDFilesToUpdate.push(metaFile);
       }
-      if (mustUpdate) MDFilesToUpdate.push(metaFile);
     }
 
     const MDFiles = metaFilesToInsert.filter(f => !isNaN((f as MDFileDTO).date));
@@ -419,7 +422,8 @@ export class IndexingManager {
         if (!Utils.equalsFilter(mediaItem.metadata, media[i].metadata)) {
           mediaItem.metadata = media[i].metadata;
           mustUpdate = true;
-        } else if (mediaItem.sha256 !== media[i].sha256) {
+        }
+        if (mediaItem.sha256 !== media[i].sha256) {
           mediaItem.sha256 = media[i].sha256;
           mustUpdate = true;
         }
