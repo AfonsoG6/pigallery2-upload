@@ -287,12 +287,13 @@ export class IndexingManager {
     });
   }
 
-  private async resolveLazySHA256(media: FileDTO): Promise<void> {
-    if ((media as any).__sha256Promise && !media.sha256) {
+  private async resolveLazySHA256(filedto: FileDTO): Promise<void> {
+    console.log('Resolving SHA256 for file:', filedto.name);
+    if ((filedto as any).__sha256Promise && !filedto.sha256) {
       try {
-        media.sha256 = await (media as any).__sha256Promise;
+        filedto.sha256 = await (filedto as any).__sha256Promise;
       } catch { /* ignore */ }
-      delete (media as any).__sha256Promise;
+      delete (filedto as any).__sha256Promise;
     }
   }
 
@@ -323,6 +324,7 @@ export class IndexingManager {
           break;
         }
       }
+      let mustUpdate = false;
       if (metaFile == null) {
         // not in DB yet
         item.directory = null;
@@ -332,9 +334,12 @@ export class IndexingManager {
         metaFilesToInsert.push(metaFile);
       } else if ((item as MDFileDTO).date && ((item as MDFileDTO).date != (metaFile as MDFileDTO).date)) {
         (metaFile as MDFileDTO).date = (item as MDFileDTO).date;
-        metaFile.sha256 = item.sha256;
-        MDFilesToUpdate.push(metaFile);
+        mustUpdate = true;
+      } else if ((item as MDFileDTO).sha256 && ((item as MDFileDTO).sha256 != (metaFile as MDFileDTO).sha256)) {
+        (metaFile as MDFileDTO).sha256 = (item as MDFileDTO).sha256;
+        mustUpdate = true;
       }
+      if (mustUpdate) MDFilesToUpdate.push(metaFile);
     }
 
     const MDFiles = metaFilesToInsert.filter(f => !isNaN((f as MDFileDTO).date));
@@ -406,21 +411,19 @@ export class IndexingManager {
         media[i].directory = null;
         mediaItem = Utils.clone(media[i]);
         mediaItem.directory = {id: parentDirId} as DirectoryBaseDTO;
-        (MediaDTOUtils.isPhoto(mediaItem)
-            ? mediaChange.insertP
-            : mediaChange.insertV
-        ).push(mediaItem);
+        (MediaDTOUtils.isPhoto(mediaItem) ? mediaChange.insertP : mediaChange.insertV).push(mediaItem);
       } else {
         // Media already in the DB, only needs to be updated
         delete (mediaItem.metadata as PhotoMetadata).faces;
+        let mustUpdate = false;
         if (!Utils.equalsFilter(mediaItem.metadata, media[i].metadata)) {
           mediaItem.metadata = media[i].metadata;
+          mustUpdate = true;
+        } else if (mediaItem.sha256 !== media[i].sha256) {
           mediaItem.sha256 = media[i].sha256;
-          (MediaDTOUtils.isPhoto(mediaItem)
-              ? mediaChange.saveP
-              : mediaChange.saveV
-          ).push(mediaItem);
+          mustUpdate = true;
         }
+        if (mustUpdate) (MediaDTOUtils.isPhoto(mediaItem) ? mediaChange.saveP : mediaChange.saveV).push(mediaItem);
       }
 
       personsPerPhoto.push({
