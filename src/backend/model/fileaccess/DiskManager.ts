@@ -195,8 +195,14 @@ export class DiskManager {
               settings.noMetadata === true
                 ? null
                 : await MetadataLoader.loadPhotoMetadata(fullFilePath),
-            sha256: await DiskManager.getFileSHA256(fullFilePath),
+            sha256: null,
           } as PhotoDTO;
+
+          Object.defineProperty(photo as any, '__sha256Promise', {
+            value: DiskManager.getFileSHA256(fullFilePath),
+            enumerable: false,
+            configurable: true
+          });
 
           if (!directory.cover) {
             directory.cover = Utils.clone(photo);
@@ -231,15 +237,21 @@ export class DiskManager {
           ) {
             continue;
           }
-          directory.media.push({
+          const video = {
             name: file,
             directory: null,
             metadata:
               settings.noMetadata === true
                 ? null
                 : await MetadataLoader.loadVideoMetadata(fullFilePath),
-            sha256: await DiskManager.getFileSHA256(fullFilePath),
-          } as VideoDTO);
+            sha256: null,
+          } as VideoDTO;
+          Object.defineProperty(video as any, '__sha256Promise', {
+            value: DiskManager.getFileSHA256(fullFilePath),
+            enumerable: false,
+            configurable: true
+          });
+          directory.media.push(video);
         } catch (e) {
           Logger.warn(
             'Media loading error, skipping: ' +
@@ -259,11 +271,17 @@ export class DiskManager {
             continue;
           }
 
-          directory.metaFile.push({
+          const meta: FileDTO = {
             name: file,
             directory: null,
-            sha256: await DiskManager.getFileSHA256(fullFilePath),
-          } as FileDTO);
+            sha256: null,
+          } as FileDTO;
+          Object.defineProperty(meta as any, '__sha256Promise', {
+            value: DiskManager.getFileSHA256(fullFilePath),
+            enumerable: false,
+            configurable: true
+          });
+          directory.metaFile.push(meta);
         } catch (e) {
           Logger.warn(
             'Metafile loading error, skipping: ' +
@@ -328,7 +346,7 @@ export class DiskManager {
         }
 
         const hash = crypto.createHash('sha256');
-        const stream = createReadStream(filePath, {highWaterMark: 4 * 1024 * 1024}); // 4MB chunk size
+        const stream = createReadStream(filePath, { highWaterMark: 4 * 1024 * 1024 }); // 4MB chunk size
 
         stream.on('data', (chunk: Buffer): void => {
           hash.update(new Uint8Array(chunk));

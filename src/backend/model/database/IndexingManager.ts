@@ -267,7 +267,7 @@ export class IndexingManager {
         childDirectories.splice(dirIndex, 1);
       } else {
         // dir does not exist yet
-        directory.parent = {id: currentDirId} as ParentDirectoryDTO;
+        directory.parent = { id: currentDirId } as ParentDirectoryDTO;
         (directory as DirectoryEntity).lastScanned = null; // new child dir, not fully scanned yet
         const d = await directoryRepository.insert(
           directory as DirectoryEntity
@@ -285,6 +285,15 @@ export class IndexingManager {
     await directoryRepository.remove(childDirectories, {
       chunk: Math.max(Math.ceil(childDirectories.length / 500), 1),
     });
+  }
+
+  private async resolveLazySHA256(media: FileDTO): Promise<void> {
+    if ((media as any).__sha256Promise && !media.sha256) {
+      try {
+        media.sha256 = await (media as any).__sha256Promise;
+      } catch { /* ignore */ }
+      delete (media as any).__sha256Promise;
+    }
   }
 
   protected async saveMetaFiles(
@@ -305,6 +314,7 @@ export class IndexingManager {
     const metaFilesToInsert = [];
     const MDFilesToUpdate = [];
     for (const item of scannedDirectory.metaFile) {
+      await this.resolveLazySHA256(item);
       let metaFile: FileDTO = null;
       for (let j = 0; j < indexedMetaFiles.length; j++) {
         if (indexedMetaFiles[j].name === item.name) {
@@ -369,6 +379,7 @@ export class IndexingManager {
     const personsPerPhoto: { faces: { name: string, mediaId?: number }[]; mediaName: string }[] = [];
     // eslint-disable-next-line @typescript-eslint/prefer-for-of
     for (let i = 0; i < media.length; i++) {
+      await this.resolveLazySHA256(media[i]);
       let mediaItem: MediaDTO = null;
       for (let j = 0; j < indexedMedia.length; j++) {
         if (indexedMedia[j].name === media[i].name) {
