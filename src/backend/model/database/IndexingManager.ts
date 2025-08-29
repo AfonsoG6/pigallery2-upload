@@ -333,6 +333,7 @@ export class IndexingManager {
       } else if ((item as MDFileDTO).date) {
         if ((item as MDFileDTO).date != (metaFile as MDFileDTO).date) {
           (metaFile as MDFileDTO).date = (item as MDFileDTO).date;
+          (metaFile as MDFileDTO).sha256 = (item as MDFileDTO).sha256;
           MDFilesToUpdate.push(metaFile);
         }
       }
@@ -416,6 +417,7 @@ export class IndexingManager {
         delete (mediaItem.metadata as PhotoMetadata).faces;
         if (!Utils.equalsFilter(mediaItem.metadata, media[i].metadata)) {
           mediaItem.metadata = media[i].metadata;
+          mediaItem.sha256 = media[i].sha256;
           (MediaDTOUtils.isPhoto(mediaItem)
               ? mediaChange.saveP
               : mediaChange.saveV
