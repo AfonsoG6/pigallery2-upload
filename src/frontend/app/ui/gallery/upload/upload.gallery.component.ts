@@ -257,27 +257,24 @@ export class GalleryUploadComponent implements OnInit, OnDestroy {
   }
 
   uploadFiles(): void {
-    this.state = State.UPLOADING;
-    this.safeLoadingBarSet(this.globalLoadingBarRef, 0);
-
-    this.uploadFilesStage1().catch(() => {
+    new Promise<void>(async (resolve, reject) => {
+      this.state = State.UPLOADING;
+      this.safeLoadingBarSet(this.globalLoadingBarRef, 0);
+      await this.uploadFilesStage1().catch(() => {reject();});
+      if (this.autoOrganize) {
+        await this.uploadFilesStage2().catch(() => {reject();});
+      }
+      resolve();
+    }).then(() => {
+      // If we reach this point, it means all files were uploaded and auto-organized successfully
+      this.invalidPathError = false;
+      this.safeLoadingBarComplete(this.globalLoadingBarRef);
+      this.state = State.FINISHED;
+      this.refreshParentDirectory();
+    }).catch(() => {
       this.safeLoadingBarComplete(this.globalLoadingBarRef);
       this.state = State.STANDBY;
-      return;
     });
-
-    if (this.autoOrganize) {
-      this.uploadFilesStage2().catch(() => {
-        this.safeLoadingBarComplete(this.globalLoadingBarRef);
-        this.state = State.STANDBY;
-        return;
-      });
-    }
-    // If we reach this point, it means all files were uploaded and auto-organized successfully
-    this.invalidPathError = false;
-    this.safeLoadingBarComplete(this.globalLoadingBarRef);
-    this.state = State.FINISHED;
-    this.refreshParentDirectory();
   }
 
   openModal(template: TemplateRef<unknown>): void {

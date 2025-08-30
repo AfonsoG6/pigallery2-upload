@@ -573,9 +573,9 @@ export class GalleryMWs {
   }
 
   private static getAbsoluteUploadDirectoryPath(req: Request): string {
-  // Fallback to query params if body is not yet parsed by multer in certain callbacks
-  const uploadPath = GalleryMWs.getStringBodyField(req, 'uploadPath', true);
-  const autoOrganize = GalleryMWs.getBooleanBodyField(req, 'autoOrganize', false);
+    // Fallback to query params if body is not yet parsed by multer in certain callbacks
+    const uploadPath = GalleryMWs.getStringBodyField(req, 'uploadPath', true);
+    const autoOrganize = GalleryMWs.getBooleanBodyField(req, 'autoOrganize', false);
     const baseDir = autoOrganize ? Config.Upload.defaultUploadPath : Config.Media.folder;
     return path.join(baseDir, uploadPath);
   }
@@ -639,8 +639,8 @@ export class GalleryMWs {
         return cb(null, false);
       }
 
-      const absUploadDirectoryPath = GalleryMWs.getAbsoluteUploadDirectoryPath(req);
-      if (!absUploadDirectoryPath || !UserDTOUtils.isDirectoryPathAvailable(absUploadDirectoryPath, req.session['user'].permissions)) {
+      const sanitizedUploadPath = GalleryMWs.sanitizePath(uploadPath);
+      if (!sanitizedUploadPath || !UserDTOUtils.isDirectoryPathAvailable(sanitizedUploadPath, req.session['user'].permissions)) {
         uploadRequest._fileRejected = true;
         uploadRequest._fileRejectedReason = ErrorCodes.FILE_INVALID_PATH_ERROR;
         return cb(null, false);
